@@ -1,6 +1,6 @@
 # fixWord
 ## 项目简介
-fixWord是一个基于python的Word文档修复工具，能够自动修复Word文档中的常见错误，如拼写错误、格式错误等。
+fixWord是一个基于python开发的Word文档修复工具，能够自动修复Word文档中的常见错误，如拼写错误、格式错误等。
 - [→访问主页（gitee）（推荐）](https://gitee.com/cxmStudio/fixWord)
 - [→访问主页（github）](https://github.com/Sam-CXM/fixWord)
 ## 开发环境
