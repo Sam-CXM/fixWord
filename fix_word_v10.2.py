@@ -10,8 +10,8 @@ from time import localtime, strftime, sleep
 """
 开发作者：晨小明
 开发日期：2024/01/04
-开发版本：v1.1__release
-修改日期：2024/01/22
+开发版本：v1.2__release
+修改日期：2024/03/11
 主要功能：一、支持单文件处理或批量文档处理，输入文件路径或文件夹路径，自动判断。
          二、读取.docx文件并设置格式：
             1.页边距：上3.7cm，下3.5cm，左2.8cm，右2.6cm
@@ -35,7 +35,7 @@ from time import localtime, strftime, sleep
                 数字后有顿号替换为点，如："1、" --> "1."
          四、输出文件名称含时间点，方便标记（可选）
          （注，本程序无法处理图片格式，如果图片独立成段，本程序所用API识别到图片会被默认是空段落，为了防止图片删除，只能放弃处理空段落及图片格式）
-更新日志：【修复】解决了含有图片的文档处理后图片被删除的问题
+更新日志：【修复】解决了批量处理时选项需要重复输入的问题
 """
 
 
@@ -232,45 +232,42 @@ def fixDocx(docx):
     lvl = 0
     for p in docx.paragraphs:
         # print(p.text)
-        lvl += 1
-        # print(p.paragraph_format.first_line_indent)
-        # print(p.style.font.size)
-        p = replace(p)
-        is_level1 = isLevel1(p)
-        is_level2 = isLevel2(p)
-        if lvl == 1:
-            paragraphFun("title", p)
-            for run_title in p.runs:
-                # print(run_title.text)
-                string = run_title.text
-                # print(string)
-                if p.text == '':
-                    continue
-                else:
-                    run_title._element.getparent().remove(run_title._element)
-                for i in string:
-                    num_or_let = isNumberOrLetter(i)
-                    text("title", is_level1, is_level2, num_or_let, p, i)
+        if p.text == '':
+            continue
         else:
-            paragraphFun("text", p)
-            for run_content in p.runs:
-                # print(run_content.text)
-                string = run_content.text
-                # print(string)
-                if p.text == '':
-                    continue
-                else:
+            lvl += 1
+            # print(p.paragraph_format.first_line_indent)
+            # print(p.style.font.size)
+            p = replace(p)
+            is_level1 = isLevel1(p)
+            is_level2 = isLevel2(p)
+            if lvl == 1:
+                paragraphFun("title", p)
+                for run_title in p.runs:
+                    # print(run_title.text)
+                    string = run_title.text
+                    # print(string)
+                    run_title._element.getparent().remove(run_title._element)
+                    for i in string:
+                        num_or_let = isNumberOrLetter(i)
+                        text("title", is_level1, is_level2, num_or_let, p, i)
+            else:
+                paragraphFun("text", p)
+                for run_content in p.runs:
+                    # print(run_content.text)
+                    string = run_content.text
+                    # print(string)
                     p.paragraph_format.first_line_indent = Pt(28)  # 首行缩进
                     run_content._element.getparent().remove(run_content._element)
-                # 替换格式："1、" --> "1."
-                for i in range(len(string)):
-                    if i + 1 <= len(string):
-                        if string[i:i+1] in '0123456789' and string[i+1:i+2] == "、":
-                            # print(string[i:i+1])
-                            string = string[i:i+1] + "." + string[i+2:]
-                for i in string:
-                    num_or_let = isNumberOrLetter(i)
-                    text("notitle", is_level1, is_level2, num_or_let, p, i)
+                    # 替换格式："1、" --> "1."
+                    for i in range(len(string)):
+                        if i + 1 <= len(string):
+                            if string[i:i+1] in '0123456789' and string[i+1:i+2] == "、":
+                                # print(string[i:i+1])
+                                string = string[i:i+1] + "." + string[i+2:]
+                    for i in string:
+                        num_or_let = isNumberOrLetter(i)
+                        text("notitle", is_level1, is_level2, num_or_let, p, i)
 
 
 def isNumberOrLetter(char):
@@ -324,7 +321,7 @@ def sureDo(func):
         return False
 
 
-def fixWord(docx_path, save_path, file, output_path):
+def fixWord(docx_path, save_path, file, output_path, time_ipt, page_ipt, img_ipt):
     """ 文档处理 """
     docx = Document(docx_path)
     # 奇偶页不同
@@ -337,7 +334,6 @@ def fixWord(docx_path, save_path, file, output_path):
     fixDocx(docx)
 
     # 添加时间后缀
-    time_ipt = sureDo("在生成文件名后面添加时间标记")
     file_name = path.splitext(file)[0]
     if time_ipt:
         save_time = strftime("%m%d%H%M", localtime())
@@ -346,25 +342,16 @@ def fixWord(docx_path, save_path, file, output_path):
         save_path = output_path + f"\{file_name}" + ".docx"
 
     # 设置页码
-    page_ipt = sureDo("添加页码")
     if page_ipt:
         footer(docx)
 
     # 保存文档中的图片
-    img_ipt = sureDo("保存文档中的图片")
     if img_ipt:
         pic_fix(docx, file, output_path)
 
     print(f"··>提示<·· 已保存：{save_path}")
     docx.save(save_path)
-    print("··>提示<·· 处理完成！")
-    sleep(0.8)
-    # 倒计时退出程序
-    t = 5
-    while t > 0:
-        print(f"{t}秒后自动关闭", end="\r")
-        t -= 1
-        sleep(1)
+    
 
 
 def inputPath():
@@ -395,6 +382,9 @@ def inputPath():
 def main():
     """ 主函数 """
     is_dir_file_path, input_path = inputPath()
+    time_ipt = None
+    page_ipt = None
+    img_ipt = None
     if is_dir_file_path == "dir_path":
         dir_path = input_path
         output_path = dir_path + "\output"
@@ -407,7 +397,11 @@ def main():
                     makedirs(output_path)
                 have_docx += 1
                 file_path = path.join(dir_path, file)
-                fixWord(file_path, output_path + f'\{file}', file, output_path)
+                if time_ipt == None:
+                    time_ipt = sureDo("在生成文件名后面添加时间标记")
+                    page_ipt = sureDo("添加页码")
+                    img_ipt = sureDo("保存文档中的图片")
+                fixWord(file_path, output_path + f'\{file}', file, output_path, time_ipt, page_ipt, img_ipt)
         if have_docx == 0:
             print("··>错误<·· 没有找到.docx文件")
     elif is_dir_file_path == "file_path":
@@ -421,8 +415,20 @@ def main():
         output_path = result + "\output"
         if not path.isdir(output_path):
             makedirs(output_path)
-        fixWord(file_path, output_path + f'\{file}', file, output_path)
+        if time_ipt == None:
+            time_ipt = sureDo("在生成文件名后面添加时间标记")
+            page_ipt = sureDo("添加页码")
+            img_ipt = sureDo("保存文档中的图片")
+        fixWord(file_path, output_path + f'\{file}', file, output_path, time_ipt, page_ipt, img_ipt)
 
 
 if __name__ == '__main__':
     main()
+    print("··>提示<·· 处理完成！")
+    sleep(0.8)
+    # 倒计时退出程序
+    t = 5
+    while t > 0:
+        print(f"{t}秒后自动关闭", end="\r")
+        t -= 1
+        sleep(1)
