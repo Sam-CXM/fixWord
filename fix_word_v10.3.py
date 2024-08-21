@@ -10,8 +10,8 @@ from time import localtime, strftime, sleep
 """
 开发作者：晨小明
 开发日期：2024/01/04
-开发版本：v1.2__release
-修改日期：2024/03/11
+开发版本：v1.3__release
+修改日期：2024/08/20
 主要功能：一、支持单文件处理或批量文档处理，输入文件路径或文件夹路径，自动判断。
          二、读取.docx文件并设置格式：
             1.页边距：上3.7cm，下3.5cm，左2.8cm，右2.6cm
@@ -35,17 +35,19 @@ from time import localtime, strftime, sleep
                 数字后有顿号替换为点，如："1、" --> "1."
          四、输出文件名称含时间点，方便标记（可选）
          （注，本程序无法处理图片格式，如果图片独立成段，本程序所用API识别到图片会被默认是空段落，为了防止图片删除，只能放弃处理空段落及图片格式）
-更新日志：【修复】解决了批量处理时选项需要重复输入的问题
+更新日志：
+【优化】解决了首行缩进2字符的问题
+【优化】设置基础信息常量，如页边距、行距、字体、字号等，方便后续修改
 """
 
 
 def margin(docx):
     """ 设置页边距 """
     for s in docx.sections:
-        s.top_margin = Cm(3.7)
-        s.bottom_margin = Cm(3.5)
-        s.left_margin = Cm(2.8)
-        s.right_margin = Cm(2.6)
+        s.top_margin = Cm(PAGETOPMARGIN)
+        s.bottom_margin = Cm(PAGEBOTTOMMARGIN)
+        s.left_margin = Cm(PAGELEFTMARGIN)
+        s.right_margin = Cm(PAGERIGHTMARGIN)
 
 
 def footer(docx):
@@ -54,9 +56,9 @@ def footer(docx):
     def AddFooterNumber(p):
         t1 = p.add_run("— ")
         font = t1.font
-        font.name = '宋体'
-        font.size = Pt(14)  # 14号字体
-        t1._element.rPr.rFonts.set(qn("w:eastAsia"), "宋体")
+        font.name = PAGENUMBERFONT
+        font.size = Pt(PAGENUMBERFONTSIZE)  # 14号字体
+        t1._element.rPr.rFonts.set(qn("w:eastAsia"), PAGENUMBERFONT)
 
         run1 = p.add_run('')
         fldChar1 = OxmlElement('w:fldChar')  # creates a new element
@@ -68,9 +70,9 @@ def footer(docx):
         instrText.set(qn('xml:space'), 'preserve')  # sets attribute on element
         instrText.text = 'PAGE'
         font = run2.font
-        font.name = '宋体'
-        font.size = Pt(14)  # 14号字体
-        run2._element.rPr.rFonts.set(qn("w:eastAsia"), '宋体')
+        font.name = PAGENUMBERFONT
+        font.size = Pt(PAGENUMBERFONTSIZE)  # 14号字体
+        run2._element.rPr.rFonts.set(qn("w:eastAsia"), PAGENUMBERFONT)
         run2._element.append(instrText)
 
         run3 = p.add_run('')
@@ -80,9 +82,9 @@ def footer(docx):
 
         t2 = p.add_run(" —")
         font = t2.font
-        font.name = '宋体'
-        font.size = Pt(14)  # 14号字体
-        t2._element.rPr.rFonts.set(qn("w:eastAsia"), '宋体')
+        font.name = PAGENUMBERFONT
+        font.size = Pt(PAGENUMBERFONTSIZE)  # 14号字体
+        t2._element.rPr.rFonts.set(qn("w:eastAsia"), PAGENUMBERFONT)
 
     for s in docx.sections:
         # print(s.footer)
@@ -102,21 +104,21 @@ def paragraphFun(is_title, p):
     """ 段落函数 """
     if is_title == "title":
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.paragraph_format.line_spacing = Pt(33)  # 行距
+        p.paragraph_format.line_spacing = Pt(TITLEMARGIN)  # 行距
         p.paragraph_format.first_line_indent = None
         p.paragraph_format.before_spacing = Pt(0)
         p.paragraph_format.after_spacing = Pt(0)
     elif is_title == "odd_footer":
         p.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
         p.paragraph_format.right_indent = Pt(14)
-        p.paragraph_format.line_spacing = Pt(28)
+        p.paragraph_format.line_spacing = Pt(TEXTMARGIN)
     elif is_title == "even_footer":
         p.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
         p.paragraph_format.left_indent = Pt(14)
-        p.paragraph_format.line_spacing = Pt(28)
+        p.paragraph_format.line_spacing = Pt(TEXTMARGIN)
     else:
         p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        p.paragraph_format.line_spacing = Pt(28)  # 行距
+        p.paragraph_format.line_spacing = Pt(TEXTMARGIN)  # 行距
         p.paragraph_format.before_spacing = Pt(0)
         p.paragraph_format.after_spacing = Pt(0)
 
@@ -164,42 +166,42 @@ def text(is_title, is_level1, is_level2, is_digit, p, i):
     if is_title == "title":
         if is_digit == "num_or_let":
             new_run = p.add_run(i)
-            new_run.font.name = 'Times New Roman'
-            new_run.font.size = Pt(18)
+            new_run.font.name = NUMBERFONT
+            new_run.font.size = Pt(TITLEFONTSIZE)
             new_run.font.bold = False
         else:
             run_title = p.add_run(i)
-            run_title.font.name = '方正小标宋简体'
+            run_title.font.name = TITLEFONT
             run_title._element.rPr.rFonts.set(
-                qn('w:eastAsia'), '方正小标宋简体')
-            run_title.font.size = Pt(18)
+                qn('w:eastAsia'), TITLEFONT)
+            run_title.font.size = Pt(TITLEFONTSIZE)
             run_title.font.bold = False
     else:
         if is_digit == "num_or_let":
             new_run = p.add_run(i)
-            new_run.font.name = 'Times New Roman'
-            new_run.font.size = Pt(14)
+            new_run.font.name = NUMBERFONT
+            new_run.font.size = Pt(TITLEFONTSIZE)
             new_run.font.bold = False
         elif is_level1 == "level1":
             run_level1 = p.add_run(i)
-            run_level1.font.name = '黑体'
+            run_level1.font.name = LEVEL1FONT
             run_level1._element.rPr.rFonts.set(
-                qn('w:eastAsia'), '黑体')
-            run_level1.font.size = Pt(14)
+                qn('w:eastAsia'), LEVEL1FONT)
+            run_level1.font.size = Pt(TEXTFONTSIZE)
             run_level1.font.bold = False
         elif is_level2 == "level2":
             run_level2 = p.add_run(i)
-            run_level2.font.name = '楷体_GB2312'
+            run_level2.font.name = LEVEL2FONT
             run_level2._element.rPr.rFonts.set(
-                qn('w:eastAsia'), '楷体_GB2312')
-            run_level2.font.size = Pt(14)
+                qn('w:eastAsia'), LEVEL2FONT)
+            run_level2.font.size = Pt(TEXTFONTSIZE)
             run_level2.font.bold = False
         else:
             run_content = p.add_run(i)
-            run_content.font.name = '仿宋_GB2312'
+            run_content.font.name = TEXTFONT
             run_content._element.rPr.rFonts.set(
-                qn('w:eastAsia'), '仿宋_GB2312')
-            run_content.font.size = Pt(14)
+                qn('w:eastAsia'), TEXTFONT)
+            run_content.font.size = Pt(TEXTFONTSIZE)
             run_content.font.bold = False
 
 
@@ -257,7 +259,8 @@ def fixDocx(docx):
                     # print(run_content.text)
                     string = run_content.text
                     # print(string)
-                    p.paragraph_format.first_line_indent = Pt(28)  # 首行缩进
+                    p.paragraph_format.first_line_indent = 0  # 首行缩进
+                    p.paragraph_format.element.pPr.ind.set(qn("w:firstLineChars"), '200')
                     run_content._element.getparent().remove(run_content._element)
                     # 替换格式："1、" --> "1."
                     for i in range(len(string)):
@@ -351,7 +354,6 @@ def fixWord(docx_path, save_path, file, output_path, time_ipt, page_ipt, img_ipt
 
     print(f"··>提示<·· 已保存：{save_path}")
     docx.save(save_path)
-    
 
 
 def inputPath():
@@ -423,6 +425,27 @@ def main():
 
 
 if __name__ == '__main__':
+    # 配置信息start
+    # 页边距
+    PAGETOPMARGIN = 3.7  # 页边距：上3.7cm
+    PAGEBOTTOMMARGIN = 3.5  # 页边距：下3.5cm
+    PAGELEFTMARGIN = 2.8  # 页边距：左2.8cm
+    PAGERIGHTMARGIN = 2.6  # 页边距：右2.6cm
+    # 标题
+    TITLEFONT = '方正小标宋简体'  # 标题：方正小标宋简体
+    TITLEFONTSIZE = 18  # 标题：小二号
+    TITLEMARGIN = 33  # 标题：固定值33磅
+    # 正文
+    TEXTFONT = '仿宋_GB2312'  # 正文：仿宋_GB2312
+    TEXTFONTSIZE = 14  # 正文：四号
+    TEXTMARGIN = 28  # 正文：一般固定值28磅
+    LEVEL1FONT = '黑体'  # 一级标题：黑体
+    LEVEL2FONT = '楷体_GB2312'  # 二级标题：楷体_GB2312
+    NUMBERFONT = 'Times New Roman'  # 数字&英文：TimesNewRoman字体
+    # 页码
+    PAGENUMBERFONTSIZE = 14  # 页码：四号
+    PAGENUMBERFONT = '宋体'  # 页码：宋体
+    # 配置信息end
     main()
     print("··>提示<·· 处理完成！")
     sleep(0.8)
