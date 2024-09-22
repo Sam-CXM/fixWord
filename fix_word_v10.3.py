@@ -180,7 +180,7 @@ def text(is_title, is_level1, is_level2, is_digit, p, i):
         if is_digit == "num_or_let":
             new_run = p.add_run(i)
             new_run.font.name = NUMBERFONT
-            new_run.font.size = Pt(TITLEFONTSIZE)
+            new_run.font.size = Pt(TEXTFONTSIZE)
             new_run.font.bold = False
         elif is_level1 == "level1":
             run_level1 = p.add_run(i)
@@ -448,7 +448,7 @@ if __name__ == '__main__':
     # 配置信息end
     main()
     print("··>提示<·· 处理完成！")
-    sleep(0.8)
+    sleep(0.5)
     # 倒计时退出程序
     t = 5
     while t > 0:
