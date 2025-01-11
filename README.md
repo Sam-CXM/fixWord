@@ -17,16 +17,16 @@ fixWord是一个基于python开发的Word文档修复工具，能够自动修复
 | ---- | ---- | ---- | ---- |
 | Windows10及以上版本 | 至少2GB | 至少25MB | / |
 ## 使用说明
-1. [下载地址1（推荐）](https://gitee.com/cxmStudio/fixWord/releases/download/v1.3/fixWord_v1.3.zip) [下载地址2](https://github.com/Sam-CXM/fixWord/releases/download/v1.3/fixWord_v1.3.zip)
+1. [下载地址1（推荐）](https://gitee.com/cxmStudio/fixWord/releases/download/v2.0/fixWord_v2.0.zip) [下载地址2](https://github.com/Sam-CXM/fixWord/releases/download/v2.0/fixWord_v2.0.zip)
 2. 将安装包解压到本地。
-3. 运行 `fixWord_v1.3.exe` 文件，输入要修复的Word**文档路径**或含有文档的**文件夹路径**。
+3. 运行 `fixWord_v2.0.exe` 文件，输入要修复的Word**文档路径**或含有文档的**文件夹路径**。
 4. 功能选择（输入 `Y` 或 `y` 确定）。
 5. 按回车键等待修复完成。
 ## 功能说明
 - **开发作者**：晨小明
 - **开发日期**：2024/01/04
-- **开发版本**：v1.3_release
-- **修改日期**：2024/08/20
+- **开发版本**：v2.0_release
+- **修改日期**：2025/01/11
 - **主要功能**：
     - 一、支持**单文件处理**或**批量文档处理**，输入文件路径或文件夹路径，自动判断。
     - 二、**读取.docx文件并设置格式**
@@ -63,6 +63,8 @@ fixWord是一个基于python开发的Word文档修复工具，能够自动修复
             数字后有顿号替换为点，如："1、" --> "1."
     - 四、输出文件名称含时间点，方便标记（可选）
 ## 更新日志：
+  - 维护日期：**2025.1.11**
+    - 【**新增**】界面交互；
   - 维护日期：**2024.8.21**
     - 【**优化**】解决了首行缩进 2 字符的问题；
     - 【**优化**】设置基础信息常量。

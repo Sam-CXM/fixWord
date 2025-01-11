@@ -2,16 +2,17 @@ from docx import Document
 from docx.shared import Pt, Cm  # 用来设置字体的大小
 from docx.oxml.ns import qn  # 设置字体
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_PARAGRAPH_ALIGNMENT  # 设置对其方式
-from os import listdir, path, makedirs
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from time import localtime, strftime, sleep
+from os import listdir, path, makedirs
+from tkinter import Tk, Entry, Button, Label, filedialog, messagebox, SUNKEN, Radiobutton, Frame, ttk, Listbox, StringVar, END
+from time import localtime, strftime
 
 """
 开发作者：晨小明
-开发日期：2024/01/04
-开发版本：v1.3__release
-修改日期：2024/08/20
+开发日期：2024/09/22
+开发版本：v2.0__release
+修改日期：2025/01/11
 主要功能：一、支持单文件处理或批量文档处理，输入文件路径或文件夹路径，自动判断。
          二、读取.docx文件并设置格式：
             1.页边距：上3.7cm，下3.5cm，左2.8cm，右2.6cm
@@ -36,8 +37,7 @@ from time import localtime, strftime, sleep
          四、输出文件名称含时间点，方便标记（可选）
          （注，本程序无法处理图片格式，如果图片独立成段，本程序所用API识别到图片会被默认是空段落，为了防止图片删除，只能放弃处理空段落及图片格式）
 更新日志：
-【优化】解决了首行缩进2字符的问题
-【优化】设置基础信息常量，如页边距、行距、字体、字号等，方便后续修改
+【新增】交互界面化
 """
 
 
@@ -315,20 +315,9 @@ def pic_fix(docx, file, output_path):
             print(f"··>提示<·· 未找到图片！")
 
 
-def sureDo(func):
-    """ 确定操作 """
-    ipt = input(f"是否{func}？（输入Y或y确定）")
-    if ipt.upper() == "Y":
-        return True
-    else:
-        return False
-
-
 def fixWord(docx_path, save_path, file, output_path, time_ipt, page_ipt, img_ipt):
     """ 文档处理 """
     docx = Document(docx_path)
-    # 奇偶页不同
-    docx.settings.odd_and_even_pages_header_footer = True
 
     # 页边距
     margin(docx)
@@ -338,90 +327,106 @@ def fixWord(docx_path, save_path, file, output_path, time_ipt, page_ipt, img_ipt
 
     # 添加时间后缀
     file_name = path.splitext(file)[0]
-    if time_ipt:
+    if time_ipt == "1":
         save_time = strftime("%m%d%H%M", localtime())
         save_path = output_path + f"\{file_name}" + save_time + ".docx"
     else:
         save_path = output_path + f"\{file_name}" + ".docx"
 
     # 设置页码
-    if page_ipt:
+    if page_ipt == "1":
+        # 奇偶页不同
+        docx.settings.odd_and_even_pages_header_footer = True
         footer(docx)
 
     # 保存文档中的图片
-    if img_ipt:
+    if img_ipt == "1":
         pic_fix(docx, file, output_path)
 
-    print(f"··>提示<·· 已保存：{save_path}")
     docx.save(save_path)
+    play_history_frm_listbox.insert(END, save_path)
+    print(f"··>提示<·· 已保存：{save_path}")
+    # 设置滚动条位置到最大值，即拖动到最底部
+    play_history_frm_listbox.yview_moveto(1)
+    # play_history_frm_listbox.xview_moveto(1)
 
 
 def inputPath():
     """ 输入路径 """
-    print("··>提示<·· 可输入以下文件路径：")
-    print("\t1.文件路径：单文件处理")
-    print("\t2.文件夹路径：多文件处理（批量处理）")
-    input_path = input("请输入路径（文件或文件夹）：")
-    if path.isdir(input_path):
-        # print("文件夹")
-        dir_path = input_path
-        path_info = "dir_path"
-        return path_info, dir_path
-    elif path.isfile(input_path):
-        # print("文件")
-        if input_path.endswith('.docx'):
-            file_path = input_path
-            path_info = "file_path"
-            return path_info, file_path
-        else:
-            print("··>错误<·· 请输入.docx文件路径")
-            return inputPath()
-    else:
-        print("··>错误<·· 路径不正确，请重新输入！")
-        return inputPath()
+    input_path = type_radio_value.get()
+    if input_path == "file_path":
+        file_path = filedialog.askopenfile(title="请选择文件", filetypes=[("docx文件", "*.docx")])
+        if file_path != None:
+            path_label["text"] = file_path.name
+    elif input_path == "dir_path":
+        dir_path = filedialog.askdirectory(title="请选择文件夹")
+        if dir_path != "":
+            path_label["text"] = dir_path
+
+
+def inputFile():
+    """ 选择文件 """
+    browse_path_button.config(text="选择文件")
+    path_label["text"] = ""
+
+
+def inputDir():
+    """ 选择文件夹 """
+    browse_path_button.config(text="选择文件夹")
+    path_label["text"] = ""
+
+
+def reSet():
+    """ 重置 """
+    type_radio1.select()
+    inputFile()
+    time_radio2.select()
+    page_radio2.select()
+    img_radio2.select()
+    play_history_frm_listbox.delete(0, END)
 
 
 def main():
     """ 主函数 """
-    is_dir_file_path, input_path = inputPath()
-    time_ipt = None
-    page_ipt = None
-    img_ipt = None
-    if is_dir_file_path == "dir_path":
-        dir_path = input_path
-        output_path = dir_path + "\output"
-        have_docx = 0
-        for file in listdir(dir_path):
-            if '~' in file:
-                continue
-            elif file.endswith('.docx'):
-                if not path.isdir(output_path):
-                    makedirs(output_path)
-                have_docx += 1
-                file_path = path.join(dir_path, file)
-                if time_ipt == None:
-                    time_ipt = sureDo("在生成文件名后面添加时间标记")
-                    page_ipt = sureDo("添加页码")
-                    img_ipt = sureDo("保存文档中的图片")
-                fixWord(file_path, output_path + f'\{file}', file, output_path, time_ipt, page_ipt, img_ipt)
-        if have_docx == 0:
-            print("··>错误<·· 没有找到.docx文件")
-    elif is_dir_file_path == "file_path":
-        file_path = input_path
-        # 文件名
-        file = file_path.split("\\")[-1]
-        # 输出路径
-        dir_path = file_path.split("\\")
-        dir_path.pop()
-        result = '\\'.join(str(x) for x in dir_path)
-        output_path = result + "\output"
-        if not path.isdir(output_path):
-            makedirs(output_path)
-        if time_ipt == None:
-            time_ipt = sureDo("在生成文件名后面添加时间标记")
-            page_ipt = sureDo("添加页码")
-            img_ipt = sureDo("保存文档中的图片")
-        fixWord(file_path, output_path + f'\{file}', file, output_path, time_ipt, page_ipt, img_ipt)
+    input_path = path_label.cget("text")
+    if input_path == "":
+        messagebox.showerror("错误", "请选择文件或文件夹路径！")
+        inputPath()
+    else:
+        input_path = input_path.replace("/", "\\")
+        file_type = type_radio_value.get()
+        time_ipt = time_radio_value.get()
+        page_ipt = page_radio_value.get()
+        img_ipt = img_radio_value.get()
+        if file_type == "dir_path":
+            output_path = input_path + "\output"
+            have_docx = 0
+            for file in listdir(input_path):
+                if '~' in file:
+                    continue
+                elif file.endswith('.docx'):
+                    if not path.isdir(output_path):
+                        makedirs(output_path)
+                    have_docx += 1
+                    file_path = path.join(input_path, file)
+                    fixWord(file_path, output_path + f'\{file}', file, output_path, time_ipt, page_ipt, img_ipt)
+            if have_docx == 0:
+                print("··>错误<·· 没有找到.docx文件")
+                messagebox.showwarning("警告", "没有找到.docx文件！")
+            else:
+                messagebox.showinfo("提示", "全部处理完成！\n输出路径：" + output_path)
+        elif file_type == "file_path":
+            # 文件名
+            file = input_path.split("\\")[-1]
+            # 输出路径
+            dir_path = input_path.split("\\")
+            dir_path.pop()
+            result = '\\'.join(str(x) for x in dir_path)
+            output_path = result + "\output"
+            if not path.isdir(output_path):
+                makedirs(output_path)
+            fixWord(input_path, output_path + f'\{file}', file, output_path, time_ipt, page_ipt, img_ipt)
+            messagebox.showinfo("提示", "处理完成！\n输出路径：" + output_path + f'\{file}')
 
 
 if __name__ == '__main__':
@@ -446,12 +451,96 @@ if __name__ == '__main__':
     PAGENUMBERFONTSIZE = 14  # 页码：四号
     PAGENUMBERFONT = '宋体'  # 页码：宋体
     # 配置信息end
-    main()
-    print("··>提示<·· 处理完成！")
-    sleep(0.5)
-    # 倒计时退出程序
-    t = 5
-    while t > 0:
-        print(f"{t}秒后自动关闭", end="\r")
-        t -= 1
-        sleep(1)
+    # tkinter start
+    tk = Tk()
+    tk.title("文档处理工具-晨小明工作室 v2.0")
+    screen_width = tk.winfo_screenwidth()
+    screen_height = tk.winfo_screenheight()
+    tk.iconbitmap("D:\\Program\\python_projects\\test\\fix_Word\\icon.ico")
+    tk.geometry("800x400")
+    # 刷新窗口参数
+    tk.update()
+    # 计算窗口居中时左上角的坐标
+    x = (screen_width - tk.winfo_width()) // 2
+    y = (screen_height - tk.winfo_height()) // 2
+    tk.geometry(f"+{x}+{y-30}")
+    # windw.attributes("-alpha", 0.8)
+    windw_width = tk.winfo_width()
+    windw_height = tk.winfo_height()
+    # 输入类型单选按钮
+    type_frm = Frame(tk)
+    type_frm.pack()
+    type_label = Label(type_frm, font=("Ya Hei", 10), text="请选择输入类型：")
+    type_label.grid(row=0, column=0, padx=5, pady=2, sticky="e")
+    type_radio_value = StringVar()
+    type_radio1 = Radiobutton(type_frm, text="文件", font=("Ya Hei", 10), value="file_path", variable=type_radio_value, command=inputFile)
+    type_radio1.grid(row=0, column=1, padx=5, pady=2)
+    type_radio2 = Radiobutton(type_frm, text="文件夹", font=("Ya Hei", 10), value="dir_path", variable=type_radio_value, command=inputDir)
+    type_radio2.grid(row=0, column=2, padx=5, pady=2)
+    type_radio1.select()
+    # 文件路径
+    path_frm = Frame(tk)
+    path_frm.pack()
+    path_label = Label(path_frm, width=50, height=1, font=("Ya Hei", 10), border=1, relief="solid")
+    path_label.grid(row=1, column=0, padx=5, pady=2, ipadx=5, ipady=5, sticky="w")
+    browse_path_button = Button(path_frm, font=("Ya Hei", 10), text="选择文件", command=inputPath)
+    browse_path_button.grid(row=1, column=1, padx=5, pady=2)
+    # 分隔线
+    separator = Frame(tk, height=2, bd=1, relief=SUNKEN)
+    separator.pack(fill="x", padx=5, pady=5)
+    # 处理信息
+    infos_frm = Frame(tk)
+    infos_frm.pack(side="top", padx=2, pady=2)
+    info_frm = Frame(infos_frm)
+    info_frm.grid(row=0, column=0, padx=5, pady=5, sticky="n")
+    time_label = Label(info_frm, font=("Ya Hei", 10), text="添加时间标记：")
+    time_label.grid(row=2, column=0, padx=5, pady=5, sticky="e")
+    time_radio_value = StringVar()
+    time_radio1 = Radiobutton(info_frm, font=("Ya Hei", 10), text="是", variable=time_radio_value, value=True)
+    time_radio1.grid(row=2, column=1, padx=5, pady=5)
+    time_radio2 = Radiobutton(info_frm, font=("Ya Hei", 10), text="否", variable=time_radio_value, value=False)
+    time_radio2.grid(row=2, column=2, padx=5, pady=5)
+    time_radio2.select()
+    page_label = Label(info_frm, font=("Ya Hei", 10), text="添加页码：")
+    page_label.grid(row=3, column=0, padx=5, pady=5, sticky="e")
+    page_radio_value = StringVar()
+    page_radio1 = Radiobutton(info_frm, font=("Ya Hei", 10), text="是", variable=page_radio_value, value=True)
+    page_radio1.grid(row=3, column=1, padx=5, pady=5)
+    page_radio2 = Radiobutton(info_frm, font=("Ya Hei", 10), text="否", variable=page_radio_value, value=False)
+    page_radio2.grid(row=3, column=2, padx=5, pady=5)
+    page_radio2.select()
+    img_label = Label(info_frm, font=("Ya Hei", 10), text="保存文档中的图片：")
+    img_label.grid(row=4, column=0, padx=5, pady=5, sticky="e")
+    img_radio_value = StringVar()
+    img_radio1 = Radiobutton(info_frm, font=("Ya Hei", 10), text="是", variable=img_radio_value, value=True)
+    img_radio1.grid(row=4, column=1, padx=5, pady=5)
+    img_radio2 = Radiobutton(info_frm, font=("Ya Hei", 10), text="否", variable=img_radio_value, value=False)
+    img_radio2.grid(row=4, column=2, padx=5, pady=5)
+    img_radio2.select()
+    # 分隔线
+    separator = Frame(tk, height=2, bd=1, relief=SUNKEN)
+    separator.pack(fill="x", padx=2, pady=2)
+    # 处理日志
+    list_frm = Frame(tk)
+    list_frm.pack()
+    play_history_frm_lbl = Label(list_frm, text="处理日志", font=("Ya Hei", 10, "bold"), fg="green")
+    play_history_frm_lbl.grid(row=0, column=0, padx=5, pady=5)
+    play_history_frm_listbox = Listbox(list_frm, width=80, height=4, font=("Ya Hei", 10), border=1, activestyle="none")
+    play_history_frm_listbox.grid(row=1, column=0, padx=5, pady=5, ipadx=5, ipady=5)
+    play_history_scroll_bar_v = ttk.Scrollbar(list_frm, orient="vertical", command=play_history_frm_listbox.yview)
+    play_history_scroll_bar_v.grid(row=1, column=1, sticky='ns')
+    play_history_scroll_bar_h = ttk.Scrollbar(list_frm, orient="horizontal", command=play_history_frm_listbox.xview)
+    play_history_scroll_bar_h.grid(row=2, column=0, sticky='we')
+    play_history_frm_listbox.configure(yscrollcommand=play_history_scroll_bar_v.set, xscrollcommand=play_history_scroll_bar_h.set)
+    # 分隔线
+    separator = Frame(tk, height=2, bd=1, relief=SUNKEN)
+    separator.pack(fill="x", padx=2, pady=2)
+    # 处理按钮
+    btn_frm = Frame(tk)
+    btn_frm.pack()
+    merge_button = Button(btn_frm, font=("Ya Hei", 10), text="开始处理", command=main)
+    merge_button.grid(row=5, column=0, padx=5, pady=5)
+    merge_button = Button(btn_frm, font=("Ya Hei", 10), text="重置", fg="blue", command=reSet)
+    merge_button.grid(row=5, column=1, padx=5, pady=5)
+    tk.mainloop()
+    # tkinter end
