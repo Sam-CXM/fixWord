@@ -4,23 +4,20 @@ from docx.oxml.ns import qn  # 设置字体
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_PARAGRAPH_ALIGNMENT  # 设置对其方式
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from os import listdir, path, makedirs
+from os import listdir, path, makedirs, getcwd
 from tkinter import Tk, Entry, Button, Label, filedialog, messagebox, SUNKEN, Radiobutton, Frame, ttk, Listbox, StringVar, END
 from time import localtime, strftime
 
 """
 开发作者：晨小明
 开发日期：2024/09/22
-开发版本：v2.0__release
-修改日期：2025/01/11
+开发版本：v3.0__release
+修改日期：2025/05/06
 主要功能：一、支持单文件处理或批量文档处理，输入文件路径或文件夹路径，自动判断。
          二、读取.docx文件并设置格式：
-            1.页边距：上3.7cm，下3.5cm，左2.8cm，右2.6cm
-            2.段落行距：标题：固定值33磅；正文：一般固定值28磅
-            3.字体，字号：标题：小二号方正小标宋简体，居中；一级标题：四号黑体；二级标题：四号楷体_GB2312；正文：四号仿宋_GB2312，两端对齐；数字&英文：四号TimesNewRoman字体
-            4.支持添加页码（可选）：4号半角宋体阿拉伯数字，数字左右各加一条4号“一字线”，奇数页在右侧左空一字，偶数页在左侧左空一字
-            5.识别文档中的图片并输出（可选）：（注：图片可能会被压缩）
-         三、替换功能
+        三、支持添加页码（可选）：4号半角宋体阿拉伯数字，数字左右各加一条4号“一字线”，奇数页在右侧左空一字，偶数页在左侧左空一字
+        四、识别文档中的图片并输出（可选）：（注：图片可能会被压缩）
+        五、替换功能
             1.符号替换
                 将英文状态下的符号替换为中文状态下的相同符号，包含如下：
                 "(" --> "（"
@@ -34,10 +31,14 @@ from time import localtime, strftime
                 " " --> ""
             2.其他格式
                 数字后有顿号替换为点，如："1、" --> "1."
-         四、输出文件名称含时间点，方便标记（可选）
+         六、输出文件名称含时间点，方便标记（可选）
          （注，本程序无法处理图片格式，如果图片独立成段，本程序所用API识别到图片会被默认是空段落，为了防止图片删除，只能放弃处理空段落及图片格式）
 更新日志：
-【新增】交互界面化
+【新增】字体常量，便于统一；
+【新增】两个版本：学校留存；上交上报；
+【新增】当前格式显示；
+【优化】其他内容；
+【修复】弹窗的路径不准确的情况。
 """
 
 
@@ -161,47 +162,65 @@ def isLevel2(p):
             continue
 
 
-def text(is_title, is_level1, is_level2, is_digit, p, i):
+def text(is_title, is_level1, is_level2, is_digit, p, i, version_ipt):
     """ 正文函数 """
     if is_title == "title":
         if is_digit == "num_or_let":
-            new_run = p.add_run(i)
-            new_run.font.name = NUMBERFONT
-            new_run.font.size = Pt(TITLEFONTSIZE)
-            new_run.font.bold = False
+            title_num = p.add_run(i)
+            title_num.font.name = NUMBERFONT
+            if version_ipt == "school":
+                title_num.font.size = Pt(FONTSIZEDICT["小二号"])
+            else:
+                title_num.font.size = Pt(FONTSIZEDICT["二号"])
+            title_num.font.bold = False
         else:
             run_title = p.add_run(i)
             run_title.font.name = TITLEFONT
             run_title._element.rPr.rFonts.set(
                 qn('w:eastAsia'), TITLEFONT)
-            run_title.font.size = Pt(TITLEFONTSIZE)
+            if version_ipt == "school":
+                run_title.font.size = Pt(FONTSIZEDICT["小二号"])
+            else:
+                run_title.font.size = Pt(FONTSIZEDICT["二号"])
             run_title.font.bold = False
     else:
         if is_digit == "num_or_let":
-            new_run = p.add_run(i)
-            new_run.font.name = NUMBERFONT
-            new_run.font.size = Pt(TEXTFONTSIZE)
-            new_run.font.bold = False
+            text_num = p.add_run(i)
+            text_num.font.name = NUMBERFONT
+            if version_ipt == "school":
+                text_num.font.size = Pt(FONTSIZEDICT["四号"])
+            else:
+                text_num.font.size = Pt(FONTSIZEDICT["三号"])
+            text_num.font.bold = False
         elif is_level1 == "level1":
             run_level1 = p.add_run(i)
             run_level1.font.name = LEVEL1FONT
             run_level1._element.rPr.rFonts.set(
                 qn('w:eastAsia'), LEVEL1FONT)
-            run_level1.font.size = Pt(TEXTFONTSIZE)
+            if version_ipt == "school":
+                run_level1.font.size = Pt(FONTSIZEDICT["四号"])
+            else:
+                run_level1.font.size = Pt(FONTSIZEDICT["三号"])
             run_level1.font.bold = False
         elif is_level2 == "level2":
             run_level2 = p.add_run(i)
             run_level2.font.name = LEVEL2FONT
             run_level2._element.rPr.rFonts.set(
                 qn('w:eastAsia'), LEVEL2FONT)
-            run_level2.font.size = Pt(TEXTFONTSIZE)
+            if version_ipt == "school":
+                run_level2.font.size = Pt(FONTSIZEDICT["四号"])
+            else:
+                run_level2.font.size = Pt(FONTSIZEDICT["三号"])
             run_level2.font.bold = False
         else:
             run_content = p.add_run(i)
             run_content.font.name = TEXTFONT
             run_content._element.rPr.rFonts.set(
                 qn('w:eastAsia'), TEXTFONT)
-            run_content.font.size = Pt(TEXTFONTSIZE)
+            if version_ipt == "school":
+                run_content.font.size = Pt(FONTSIZEDICT["四号"])
+            else:
+                run_content.font.size = Pt(FONTSIZEDICT["三号"])
             run_content.font.bold = False
 
 
@@ -229,7 +248,7 @@ def replace(p):
     return p
 
 
-def fixDocx(docx):
+def fixDocx(docx, version_ipt):
     """ 主要格式 """
     lvl = 0
     for p in docx.paragraphs:
@@ -252,7 +271,7 @@ def fixDocx(docx):
                     run_title._element.getparent().remove(run_title._element)
                     for i in string:
                         num_or_let = isNumberOrLetter(i)
-                        text("title", is_level1, is_level2, num_or_let, p, i)
+                        text("title", is_level1, is_level2, num_or_let, p, i, version_ipt)
             else:
                 paragraphFun("text", p)
                 for run_content in p.runs:
@@ -270,7 +289,7 @@ def fixDocx(docx):
                                 string = string[i:i+1] + "." + string[i+2:]
                     for i in string:
                         num_or_let = isNumberOrLetter(i)
-                        text("notitle", is_level1, is_level2, num_or_let, p, i)
+                        text("notitle", is_level1, is_level2, num_or_let, p, i, version_ipt)
 
 
 def isNumberOrLetter(char):
@@ -315,7 +334,7 @@ def pic_fix(docx, file, output_path):
             print(f"··>提示<·· 未找到图片！")
 
 
-def fixWord(docx_path, save_path, file, output_path, time_ipt, page_ipt, img_ipt):
+def fixWord(docx_path, save_path, file, output_path, time_ipt, page_ipt, img_ipt, version_ipt):
     """ 文档处理 """
     docx = Document(docx_path)
 
@@ -323,7 +342,7 @@ def fixWord(docx_path, save_path, file, output_path, time_ipt, page_ipt, img_ipt
     margin(docx)
 
     # 修改格式
-    fixDocx(docx)
+    fixDocx(docx, version_ipt)
 
     # 添加时间后缀
     file_name = path.splitext(file)[0]
@@ -331,6 +350,7 @@ def fixWord(docx_path, save_path, file, output_path, time_ipt, page_ipt, img_ipt
         save_time = strftime("%m%d%H%M", localtime())
         save_path = output_path + f"\{file_name}" + save_time + ".docx"
     else:
+        save_time = ""
         save_path = output_path + f"\{file_name}" + ".docx"
 
     # 设置页码
@@ -349,6 +369,7 @@ def fixWord(docx_path, save_path, file, output_path, time_ipt, page_ipt, img_ipt
     # 设置滚动条位置到最大值，即拖动到最底部
     play_history_frm_listbox.yview_moveto(1)
     # play_history_frm_listbox.xview_moveto(1)
+    return save_time
 
 
 def inputPath():
@@ -362,6 +383,16 @@ def inputPath():
         dir_path = filedialog.askdirectory(title="请选择文件夹")
         if dir_path != "":
             path_label["text"] = dir_path
+
+
+def versionText1():
+    """ 版本文本控制1 """
+    version_text_label["text"] = VERSIONTEXT1
+
+
+def versionText2():
+    """ 版本文本控制2 """
+    version_text_label["text"] = VERSIONTEXT2
 
 
 def inputFile():
@@ -380,6 +411,8 @@ def reSet():
     """ 重置 """
     type_radio1.select()
     inputFile()
+    version_radio1.select()
+    versionText1()
     time_radio2.select()
     page_radio2.select()
     img_radio2.select()
@@ -394,6 +427,7 @@ def main():
         inputPath()
     else:
         input_path = input_path.replace("/", "\\")
+        version_ipt = version_radio_value.get()
         file_type = type_radio_value.get()
         time_ipt = time_radio_value.get()
         page_ipt = page_radio_value.get()
@@ -409,7 +443,7 @@ def main():
                         makedirs(output_path)
                     have_docx += 1
                     file_path = path.join(input_path, file)
-                    fixWord(file_path, output_path + f'\{file}', file, output_path, time_ipt, page_ipt, img_ipt)
+                    fixWord(file_path, output_path + f'\{file}', file, output_path, time_ipt, page_ipt, img_ipt, version_ipt)
             if have_docx == 0:
                 print("··>错误<·· 没有找到.docx文件")
                 messagebox.showwarning("警告", "没有找到.docx文件！")
@@ -425,53 +459,81 @@ def main():
             output_path = result + "\output"
             if not path.isdir(output_path):
                 makedirs(output_path)
-            fixWord(input_path, output_path + f'\{file}', file, output_path, time_ipt, page_ipt, img_ipt)
-            messagebox.showinfo("提示", "处理完成！\n输出路径：" + output_path + f'\{file}')
+            save_time = fixWord(input_path, output_path + f'\{file}', file, output_path, time_ipt, page_ipt, img_ipt, version_ipt)
+            messagebox.showinfo("提示", "处理完成！\n输出路径：" + output_path + "\\" + file.split(".")[0] + save_time + ".docx")
 
 
 if __name__ == '__main__':
     # 配置信息start
-    # 页边距
+    # 字号字典
+    FONTSIZEDICT = {
+        "八号": 5, "七号": 5.5, "小六号": 6.5, "六号": 7.5, "小五号": 9, "五号": 10.5, "小四号": 12, "四号": 14, "小三号": 15, "三号": 16, "小二号": 18, "二号": 22, "小一号": 24, "一号": 26, "小初号": 36, "初号": 42
+    }
+    # 版本文本
+    VERSIONTEXT1 = """当前配置：
+    版    本：学校留存
+    页 边 距：上3.7cm 下3.5cm 左2.8cm 右2.6cm
+    标    题：小二号 方正小标宋简体  33磅
+    正    文：四号 仿宋_GB2312 28磅
+    一级标题：四号 黑体 28磅
+    二级标题：四号 楷体_GB2312 28磅
+    数字&英文：四号 TimesNewRoman字体
+    页    码：四号 宋体
+"""
+    VERSIONTEXT2 = """当前配置：
+    版    本：上交上报
+    页 边 距：上3.7cm 下3.5cm 左2.8cm 右2.6cm
+    标    题：二号 方正小标宋简体  33磅
+    正    文：三号 仿宋_GB2312 28磅
+    一级标题：三号 黑体 28磅
+    二级标题：三号 楷体_GB2312 28磅
+    数字&英文：三号 TimesNewRoman字体
+    页    码：四号 宋体
+"""
+    # 页边距-CM
     PAGETOPMARGIN = 3.7  # 页边距：上3.7cm
     PAGEBOTTOMMARGIN = 3.5  # 页边距：下3.5cm
     PAGELEFTMARGIN = 2.8  # 页边距：左2.8cm
     PAGERIGHTMARGIN = 2.6  # 页边距：右2.6cm
-    # 标题
+    # 标题-磅值
     TITLEFONT = '方正小标宋简体'  # 标题：方正小标宋简体
-    TITLEFONTSIZE = 18  # 标题：小二号
     TITLEMARGIN = 33  # 标题：固定值33磅
-    # 正文
+    # 正文-磅值
     TEXTFONT = '仿宋_GB2312'  # 正文：仿宋_GB2312
-    TEXTFONTSIZE = 14  # 正文：四号
     TEXTMARGIN = 28  # 正文：一般固定值28磅
     LEVEL1FONT = '黑体'  # 一级标题：黑体
     LEVEL2FONT = '楷体_GB2312'  # 二级标题：楷体_GB2312
     NUMBERFONT = 'Times New Roman'  # 数字&英文：TimesNewRoman字体
-    # 页码
-    PAGENUMBERFONTSIZE = 14  # 页码：四号
+    # 页码-磅值
+    PAGENUMBERFONTSIZE = FONTSIZEDICT["四号"]  # 页码：四号
     PAGENUMBERFONT = '宋体'  # 页码：宋体
     # 配置信息end
     # tkinter start
     tk = Tk()
-    tk.title("文档处理工具-晨小明工作室 v2.0")
+    tk.title("文档处理工具-晨小明工作室 v3.0 （学校定制版）")
     screen_width = tk.winfo_screenwidth()
     screen_height = tk.winfo_screenheight()
-    tk.iconbitmap("D:\\Program\\python_projects\\test\\fix_Word\\icon.ico")
-    tk.geometry("800x400")
+    """
+        !!!!!!!!!!!!
+        打包时把此路径改为[\\icon.ico]，并把图标复制粘贴到打包后的根目录里
+        !!!!!!!!!!!!
+    """
+    tk.iconbitmap(getcwd() + "\\test\\fix_word\\icon.ico")
+    tk.geometry("800x540")
     # 刷新窗口参数
     tk.update()
     # 计算窗口居中时左上角的坐标
     x = (screen_width - tk.winfo_width()) // 2
     y = (screen_height - tk.winfo_height()) // 2
     tk.geometry(f"+{x}+{y-30}")
-    # windw.attributes("-alpha", 0.8)
+    # tk.attributes("-alpha", 0.8)
     windw_width = tk.winfo_width()
     windw_height = tk.winfo_height()
     # 输入类型单选按钮
     type_frm = Frame(tk)
     type_frm.pack()
     type_label = Label(type_frm, font=("Ya Hei", 10), text="请选择输入类型：")
-    type_label.grid(row=0, column=0, padx=5, pady=2, sticky="e")
+    type_label.grid(row=0, column=0, padx=5, pady=5, sticky="e")
     type_radio_value = StringVar()
     type_radio1 = Radiobutton(type_frm, text="文件", font=("Ya Hei", 10), value="file_path", variable=type_radio_value, command=inputFile)
     type_radio1.grid(row=0, column=1, padx=5, pady=2)
@@ -485,6 +547,25 @@ if __name__ == '__main__':
     path_label.grid(row=1, column=0, padx=5, pady=2, ipadx=5, ipady=5, sticky="w")
     browse_path_button = Button(path_frm, font=("Ya Hei", 10), text="选择文件", command=inputPath)
     browse_path_button.grid(row=1, column=1, padx=5, pady=2)
+    # 输入框--后续修复
+    # path_entry = Entry(path_frm, width=50, font=("Ya Hei", 10), border=1, relief="solid")
+    # path_entry.grid(row=1, column=2, padx=10, pady=10, ipadx=5, ipady=5, sticky="w")
+    # 分隔线
+    separator = Frame(tk, height=2, bd=1, relief=SUNKEN)
+    separator.pack(fill="x", padx=5, pady=5)
+    # 选择版本
+    version_frm = Frame(tk)
+    version_frm.pack(side="top", padx=2, pady=2)
+    version_label = Label(version_frm, font=("Ya Hei", 10), text="请选择版本：")
+    version_label.grid(row=2, column=0, padx=5, pady=5, sticky="e")
+    version_radio_value = StringVar()
+    version_radio1 = Radiobutton(version_frm, font=("Ya Hei", 10), text="学校留存", variable=version_radio_value, value="school", command=versionText1)
+    version_radio1.grid(row=2, column=1, padx=5, pady=5)
+    version_radio2 = Radiobutton(version_frm, font=("Ya Hei", 10), text="上交上报", variable=version_radio_value, value="report", command=versionText2)
+    version_radio2.grid(row=2, column=2, padx=5, pady=5)
+    version_radio1.select()
+    version_text_label = Label(version_frm, width=46, height=12, font=("Ya Hei", 10), text=VERSIONTEXT1, justify="left", border=1, relief="solid")
+    version_text_label.grid(row=2, column=3, sticky="w")
     # 分隔线
     separator = Frame(tk, height=2, bd=1, relief=SUNKEN)
     separator.pack(fill="x", padx=5, pady=5)
