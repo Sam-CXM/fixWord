@@ -7,8 +7,9 @@ fixWord是一个基于python开发的Word文档修复工具，能够自动修复
 - [→访问主页（Github）](https://github.com/Sam-CXM/fixWord)
 ## 开发环境
 - Python 3.10.7
-- python-docx 1.1.0
-- pyinstaller 5.6.1
+- python-docx 1.2.0（update）
+- pyinstaller 6.14.2（update）
+- pillow 11.3.0（update）
 ## 项目特点
 - 支持多种常见错误修复，如拼写错误、格式错误等。
 - 支持单文件和批量修复多个Word文档。
