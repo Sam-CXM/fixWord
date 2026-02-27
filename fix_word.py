@@ -6,40 +6,36 @@
   \____/_/\_\_|  |_| |____/ \__|\__,_|\__,_|_|\___/
 
 开发作者：晨小明
-开发日期：2024/01/04
-开发版本：v13.0__release
-发布版本：v4.0__release
-修改日期：2025/06/17
+开发日期：2024/09/22
+开发版本：v13.3.5_Dev
+发布版本：v4.3.5_release
+修改日期：2026/02/28
 主要功能：一、支持单文件处理或批量文档处理，输入文件路径或文件夹路径，自动判断。
          二、读取.docx文件并设置格式：
-        三、支持添加页码（可选）：4号半角宋体阿拉伯数字，数字左右各加一条4号“一字线”，奇数页在右侧左空一字，偶数页在左侧左空一字
-        四、识别文档中的图片并输出（可选）：（注：图片可能会被压缩）
-        五、替换功能
+         三、支持添加页码（可选）：4号半角宋体阿拉伯数字，数字左右各加一条4号“一字线”，奇数页在右侧左空一字，偶数页在左侧左空一字
+         四、识别文档中的图片并输出（可选）：（注：图片可能会被压缩）
+         五、替换功能
             1.符号替换
                 将英文状态下的符号替换为中文状态下的相同符号，包含如下：
                 "(" --> "（"
                 ")" --> "）"
-                ")、" --> "）"
-                "）、" --> "）"
                 "," --> "，"
                 ":" --> "："
                 ";" --> "；"
                 "?" --> "？"
                 " " --> ""
             2.其他格式
-                数字后有顿号替换为点，如："1、" --> "1."
          六、输出文件名称含时间点，方便标记（可选）
          （注，本程序无法处理图片格式，如果图片独立成段，本程序所用API识别到图片会被默认是空段落，为了防止图片删除，只能放弃处理空段落及图片格式）
 更新日志：
-【新增】支持用户手动输入路径，输入类型多样化；
-【新增】底部版本信息；
-【新增】全角空格替换；
-【新增】左侧缩进为0（不是首行缩进）；
-【新增】段前段后为0；
-【新增】取消孤行控制；
-【优化】界面排版优化，视觉效果更佳；
-【修复】两位数字后为顿号（、）时，会丢失相邻数之前的数字；
-【修复】其他问题。
+【新增】右键输出日志可直接打开文件或文件夹；
+【新增】复制路径功能；
+【新增】批量处理时成功文件个数提示；
+【修复】识别各级标题的逻辑；
+【修复】保存出错的问题提示；
+【优化】处理文档过程中的按钮状态；
+【优化】实时更新输出日志。
+【优化】正文处理函数。
 """
 
 from docx import Document
@@ -47,8 +43,8 @@ from docx.shared import Pt, Cm  # 用来设置字体的大小
 from docx.oxml.ns import qn  # 设置字体
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_PARAGRAPH_ALIGNMENT  # 设置对其方式
 from docx.oxml import OxmlElement
-from os import listdir, path, makedirs, getcwd
-from tkinter import Tk, Entry, Button, Label, filedialog, messagebox, SUNKEN, Radiobutton, Frame, ttk, Listbox, StringVar, END, Toplevel, Canvas
+from os import listdir, path, makedirs, getcwd, startfile
+from tkinter import Tk, Entry, Button, Label, filedialog, messagebox, SUNKEN, Radiobutton, Frame, ttk, Listbox, StringVar, END, Toplevel, Canvas, Menu
 from time import localtime, strftime
 from PIL import Image, ImageTk
 from webbrowser import open as webopen
@@ -113,6 +109,52 @@ def footer(docx):
         AddFooterNumber(paragraph)
 
 
+def isLevel1(p):
+    """ 判断是否是 1 级标题 """
+    index1_list = ["一、", "二、", "三、", "四、", "五、", "六、", "七、", "八、", "九、", "十、", "十一、", "十二、", "十三、", "十四、", "十五、", "十六、", "十七、", "十八、", "十九、", "二十、"]
+    for i in index1_list:
+        if i in p.text[:3]:
+            if '。' in p.text:
+                p.text = p.text.replace('。', '')
+            if '？' in p.text:
+                p.text = p.text.replace('？', '')
+            if '：' in p.text:
+                p.text = p.text.replace('：', '')
+            if '；' in p.text:
+                p.text = p.text.replace('；', '')
+            return "level1"
+        else:
+            continue
+
+
+def isLevel2(p):
+    """ 判断是否是 2 级标题 """
+    index2_list = ["（一）", "（二）", "（三）", "（四）", "（五）", "（六）", "（七）", "（八）", "（九）", "（十）", "（十一）", "（十二）", "（十三）", "（十四）", "（十五）", "（十六）", "（十七）", "（十八）", "（十九）", "（二十）"]
+    for i in index2_list:
+        if i in p.text[:4]:
+            if '。' in p.text:
+                p.text = p.text.replace('。', '')
+            if '？' in p.text:
+                p.text = p.text.replace('？', '')
+            if '：' in p.text:
+                p.text = p.text.replace('：', '')
+            if '；' in p.text:
+                p.text = p.text.replace('；', '')
+            return "level2"
+        else:
+            continue
+
+
+def isLevel3(p):
+    """ 判断是否是 3 级标题 """
+    index3_list = ["1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.", "10.", "11.", "12.", "13.", "14.", "15.", "16.", "17.", "18.", "19.", "20."]
+    for i in index3_list:
+        if i in p.text[:3]:
+            return "level3"
+        else:
+            continue
+
+
 def paragraphFun(is_title, p):
     """ 段落函数 """
     try:
@@ -120,8 +162,9 @@ def paragraphFun(is_title, p):
         p.paragraph_format.element.pPr.ind.set(qn("w:rightChars"), '0')  # 右侧缩进
         p.paragraph_format.element.pPr.ind.set(qn("w:left"), '0')  # 缩进(cm)
         p.paragraph_format.element.pPr.ind.set(qn("w:right"), '0')  # 缩进(cm)
-    except:
+    except Exception as e:
         pass
+        # print('错误：', e, f'\t{p.text} 不支持设置缩进')
     if is_title == "title":
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p.paragraph_format.line_spacing = Pt(TITLEMARGIN)  # 行距
@@ -144,109 +187,44 @@ def paragraphFun(is_title, p):
         p.paragraph_format.widow_control = False
 
 
-def isLevel1(p):
-    """ 判断是否是 1 级标题 """
-    index1_list = ["一、", "二、", "三、", "四、", "五、", "六、", "七、", "八、", "九、", "十、",
-                   "十一、", "十二、", "十三、", "十四、", "十五、", "十六、", "十七、", "十八、", "十九、", "二十、"]
-    for i in range(len(index1_list)):
-        if p.text.find(index1_list[i]) != -1:
-            if '。' in p.text:
-                p.text = p.text.replace('。', '')
-            if '？' in p.text:
-                p.text = p.text.replace('？', '')
-            if '：' in p.text:
-                p.text = p.text.replace('：', '')
-            if '；' in p.text:
-                p.text = p.text.replace('；', '')
-            return "level1"
-        else:
-            continue
-
-
-def isLevel2(p):
-    """ 判断是否是 2 级标题 """
-    index2_list = ["（一）", "（二）", "（三）", "（四）", "（五）", "（六）", "（七）", "（八）", "（九）", "（十）",
-                   "（十一）", "（十二）", "（十三）", "（十四）", "（十五）", "（十六）", "（十七）", "（十八）", "（十九）", "（二十）"]
-    for i in range(len(index2_list)):
-        if p.text.find(index2_list[i]) != -1:
-            if '。' in p.text:
-                p.text = p.text.replace('。', '')
-            if '？' in p.text:
-                p.text = p.text.replace('？', '')
-            if '：' in p.text:
-                p.text = p.text.replace('：', '')
-            if '；' in p.text:
-                p.text = p.text.replace('；', '')
-            return "level2"
-        else:
-            continue
-
-
-def text(is_title, is_level1, is_level2, is_digit, p, i, version_ipt):
+def text(is_title, is_level1, is_level2, is_level3, is_digit, p, i, version_ipt):
     """ 正文函数 """
     if is_title == "title":
+        run_title = p.add_run(i)
         if is_digit == "num_or_let":
-            title_num = p.add_run(i)
-            title_num.font.name = NUMBERFONT
-            if version_ipt == "school":
-                title_num.font.size = Pt(FONTSIZEDICT["小二号"])
-            else:
-                title_num.font.size = Pt(FONTSIZEDICT["二号"])
-            title_num.font.bold = False
+            run_title.font.name = NUMBERFONT
         else:
-            run_title = p.add_run(i)
             run_title.font.name = TITLEFONT
             run_title._element.rPr.rFonts.set(qn('w:eastAsia'), TITLEFONT)
-            if version_ipt == "school":
-                run_title.font.size = Pt(FONTSIZEDICT["小二号"])
-            else:
-                run_title.font.size = Pt(FONTSIZEDICT["二号"])
-            run_title.font.bold = False
-    else:
-        if is_digit == "num_or_let":
-            text_num = p.add_run(i)
-            text_num.font.name = NUMBERFONT
-            if version_ipt == "school":
-                text_num.font.size = Pt(FONTSIZEDICT["四号"])
-            else:
-                text_num.font.size = Pt(FONTSIZEDICT["三号"])
-            text_num.font.bold = False
-        elif is_level1 == "level1":
-            run_level1 = p.add_run(i)
-            run_level1.font.name = LEVEL1FONT
-            run_level1._element.rPr.rFonts.set(qn('w:eastAsia'), LEVEL1FONT)
-            if version_ipt == "school":
-                run_level1.font.size = Pt(FONTSIZEDICT["四号"])
-            else:
-                run_level1.font.size = Pt(FONTSIZEDICT["三号"])
-            run_level1.font.bold = False
-        elif is_level2 == "level2":
-            run_level2 = p.add_run(i)
-            run_level2.font.name = LEVEL2FONT
-            run_level2._element.rPr.rFonts.set(qn('w:eastAsia'), LEVEL2FONT)
-            if version_ipt == "school":
-                run_level2.font.size = Pt(FONTSIZEDICT["四号"])
-            else:
-                run_level2.font.size = Pt(FONTSIZEDICT["三号"])
-            run_level2.font.bold = False
+        if version_ipt == "school":
+            run_title.font.size = Pt(FONTSIZEDICT["小二号"])
         else:
-            run_content = p.add_run(i)
+            run_title.font.size = Pt(FONTSIZEDICT["二号"])
+    else:
+        run_content = p.add_run(i)
+        if is_digit == "num_or_let":
+            run_content.font.name = NUMBERFONT
+        elif is_level1 == "level1":
+            run_content.font.name = LEVEL1FONT
+            run_content._element.rPr.rFonts.set(qn('w:eastAsia'), LEVEL1FONT)
+        elif is_level2 == "level2":
+            run_content.font.name = LEVEL2FONT
+            run_content._element.rPr.rFonts.set(qn('w:eastAsia'), LEVEL2FONT)
+        elif is_level3 == "level3":
+            run_content.font.name = LEVEL3FONT
+            run_content._element.rPr.rFonts.set(qn('w:eastAsia'), LEVEL3FONT)
+        else:
             run_content.font.name = TEXTFONT
             run_content._element.rPr.rFonts.set(qn('w:eastAsia'), TEXTFONT)
-            if version_ipt == "school":
-                run_content.font.size = Pt(FONTSIZEDICT["四号"])
-            else:
-                run_content.font.size = Pt(FONTSIZEDICT["三号"])
-            run_content.font.bold = False
+        if version_ipt == "school":
+            run_content.font.size = Pt(FONTSIZEDICT["四号"])
+        else:
+            run_content.font.size = Pt(FONTSIZEDICT["三号"])
 
 
 def replace(p):
     """ 替换函数 """
     # 替换符号
-    if ')、' in p.text:
-        p.text = p.text.replace(')、', '）')
-    if '）、' in p.text:
-        p.text = p.text.replace('）、', '）')
     if '(' in p.text:
         p.text = p.text.replace('(', '（')
     if ')' in p.text:
@@ -259,6 +237,10 @@ def replace(p):
         p.text = p.text.replace(';', '；')
     if '?' in p.text:
         p.text = p.text.replace('?', '？')
+    if '》、' in p.text:
+        p.text = p.text.replace('》、', '》')
+    if '．' in p.text:  # U+ff0e
+        p.text = p.text.replace('．', '.')
     if ' ' in p.text:  # 空格
         p.text = p.text.replace(' ', '')
     if '　' in p.text:  # U+3000
@@ -282,39 +264,26 @@ def fixDocx(docx, version_ipt):
             p = replace(p)
             is_level1 = isLevel1(p)
             is_level2 = isLevel2(p)
+            is_level3 = isLevel3(p)
             if lvl == 1:
                 paragraphFun("title", p)
                 for run_title in p.runs:
                     # print(run_title.text)
-                    string = run_title.text
                     # print(string)
                     run_title._element.getparent().remove(run_title._element)
-                    for i in string:
+                    for i in run_title.text:
                         num_or_let = isNumberOrLetter(i)
-                        text("title", is_level1, is_level2, num_or_let, p, i, version_ipt)
+                        text("title", is_level1, is_level2, is_level3, num_or_let, p, i, version_ipt)
             else:
                 paragraphFun("text", p)
                 for run_content in p.runs:
-                    # print(run_content.text)
-                    string = run_content.text
                     # print(string)
                     p.paragraph_format.first_line_indent = 0  # 首行缩进
                     p.paragraph_format.element.pPr.ind.set(qn("w:firstLineChars"), '200')  # 首行缩进
                     run_content._element.getparent().remove(run_content._element)
-                    # 替换格式："1、" --> "1."
-                    s = ''
-                    for i in range(len(string)):
-                        if i + 1 <= len(string):
-                            if string[i:i+1] in '0123456789' and string[i+1:i+2] == "、":
-                                # print(string[i:i+1])
-                                str = string[i:i+1] + "." + string[i+2:]
-                                s += str
-                                break
-                            else:
-                                s += string[i:i+1]
-                    for i in s:  # 遍历字符串
+                    for i in run_content.text:  # 遍历字符串
                         num_or_let = isNumberOrLetter(i)
-                        text("notitle", is_level1, is_level2, num_or_let, p, i, version_ipt)
+                        text("notitle", is_level1, is_level2, is_level3, num_or_let, p, i, version_ipt)
 
 
 def isNumberOrLetter(char):
@@ -359,7 +328,7 @@ def picFix(docx, file, output_path):
             print(f"··>提示<·· 未找到图片！")
 
 
-def fixWord(docx_path, save_path, file, output_path, time_ipt, page_ipt, img_ipt, version_ipt):
+def fixWord(docx_path, file, output_path, time_ipt, page_ipt, img_ipt, version_ipt):
     """ 文档处理 """
     docx = Document(docx_path)
 
@@ -387,15 +356,25 @@ def fixWord(docx_path, save_path, file, output_path, time_ipt, page_ipt, img_ipt
     # 保存文档中的图片
     if img_ipt == "1":
         picFix(docx, file, output_path)
+
+    # 保存文档
     output_time = strftime("%m-%d %H:%M:%S", localtime())
-    docx.save(save_path)
-    output_txt = output_time + "    " + save_path
-    play_history_frm_listbox.insert(END, output_txt)
-    print(f"··>提示<·· 已保存：{output_txt}")
-    # 设置滚动条位置到最大值，即拖动到最底部
-    play_history_frm_listbox.yview_moveto(1)
-    # play_history_frm_listbox.xview_moveto(1)
-    return save_time
+    try:
+        docx.save(save_path)
+        output_txt = output_time + "    " + save_path
+        play_history_frm_listbox.insert(END, output_txt)
+        play_history_frm_listbox.update()
+        # print(f"··>提示<·· 已保存：{output_txt}")
+        # 设置滚动条位置到最大值，即拖动到最底部
+        play_history_frm_listbox.yview_moveto(1)
+        return save_time, True
+    except PermissionError:
+        output_txt = output_time + "    " + f"{file_name} 保存失败！文件已打开，请关闭后重试！"
+        play_history_frm_listbox.insert(END, output_txt)
+        play_history_frm_listbox.update()
+        play_history_frm_listbox.yview_moveto(1)
+        messagebox.showerror("错误", f"{file_name} 保存失败！文件已打开，请关闭后重试！")
+        return save_time, False
 
 
 def inputPath():
@@ -500,9 +479,68 @@ def checkPath():
     return False
 
 
+def open_folder(type):
+    # 获取当前选中的条目索引和内容
+    selected_index = play_history_frm_listbox.curselection()[0]  # 获取当前选中项的索引
+    selected_folder = play_history_frm_listbox.get(selected_index)  # 获取当前选中项的内容（即文件夹路径）
+    selected_ = selected_folder.split("    ")[1]
+    if path.exists(selected_):
+        if type == 1:  # 打开文件
+            # 使用系统默认的文件浏览器打开文件夹
+            startfile(selected_)  # Windows系统使用此方法
+        elif type == 2:    # 打开文件夹
+            folder_path = path.dirname(selected_)
+            # 使用系统默认的文件浏览器打开文件夹
+            startfile(folder_path)  # Windows系统使用此方法
+    else:
+        messagebox.showerror("错误", "选中的路径错误！")
+
+
+def create_popup_menu(event):
+    # 获取当前选中的条目索引和内容
+    selected = play_history_frm_listbox.curselection()
+    if selected:
+        # 创建一个菜单
+        popup_menu = Menu(play_history_frm, tearoff=0)
+        # 添加菜单项
+        popup_menu.add_command(label="打开文件", command=lambda: open_folder(1))
+        popup_menu.add_command(label="复制路径", command=lambda: copy_selected(play_history_frm_listbox))
+        popup_menu.add_command(label="在文件夹中显示", command=lambda: open_folder(2))
+        popup_menu.add_separator()  # 添加分隔线
+        popup_menu.add_command(label="退出", command=tk.quit)  # 添加退出命令（可选）
+        # 显示菜单
+        popup_menu.tk_popup(event.x_root, event.y_root)
+
+
+def copy_selected(listbox):
+    # 获取选中的项
+    # 获取当前选中的条目索引和内容
+    selected_index = listbox.curselection()[0]  # 获取当前选中项的索引
+    selected_folder = listbox.get(selected_index)  # 获取当前选中项的内容（即文件夹路径）
+    selected_ = selected_folder.split("    ")[1]
+    if path.exists(selected_):
+        # 这里可以添加复制到剪贴板的代码，例如使用tkinter的clipboard模块
+        if tk.clipboard_get():
+            tk.clipboard_clear()  # 清空剪贴板
+        tk.clipboard_append(selected_)
+        messagebox.showinfo("提示", "已复制到剪贴板！\n使用 【Ctrl+V】 粘贴即可！")
+    else:
+        messagebox.showwarning("提示", "未检测到有效路径！请重试！")
+
+
+def done():
+    """ 处理完成 """
+    merge_button.config(state="normal", cursor="", text="开始处理")
+    reset_button.config(state="normal")
+
+
 def main():
     """ 主函数 """
     if checkPath():
+        merge_button.config(state="disabled", cursor="wait", text="正在处理")
+        reset_button.config(state="disabled")
+        merge_button.update()
+        reset_button.update()
         input_path = path_entry.get().replace("/", "\\")
         version_ipt = version_radio_value.get()
         file_type = type_radio_value.get()
@@ -512,6 +550,7 @@ def main():
         if file_type == "dir_path":
             output_path = input_path + "\output"
             have_docx = 0
+            done_list = []
             for file in listdir(input_path):
                 if '~' in file:
                     continue
@@ -520,12 +559,17 @@ def main():
                         makedirs(output_path)
                     have_docx += 1
                     file_path = path.join(input_path, file)
-                    fixWord(file_path, output_path + f'\{file}', file, output_path, time_ipt, page_ipt, img_ipt, version_ipt)
+                    save_time, is_done = fixWord(file_path, file, output_path, time_ipt, page_ipt, img_ipt, version_ipt)
+                    if is_done:
+                        done_list.append(file_path)
             if have_docx == 0:
                 print("··>错误<·· 没有找到.docx文件")
                 messagebox.showwarning("警告", "没有找到.docx文件！")
             else:
-                messagebox.showinfo("提示", "全部处理完成！\n输出路径：" + output_path)
+                if len(done_list) == have_docx:
+                    messagebox.showinfo("提示", f"全部处理完成！\n共 {have_docx} 个文件\n输出路径：" + output_path)
+                else:
+                    messagebox.showinfo("提示", f"处理完成！\n共 {have_docx} 个文件，成功 {len(done_list)} 个，失败 {have_docx - len(done_list)} 个\n输出路径：" + output_path)
         elif file_type == "file_path":
             # 文件名
             file = input_path.split("\\")[-1]
@@ -536,16 +580,18 @@ def main():
             output_path = result + "\output"
             if not path.isdir(output_path):
                 makedirs(output_path)
-            save_time = fixWord(input_path, output_path + f'\{file}', file, output_path, time_ipt, page_ipt, img_ipt, version_ipt)
-            messagebox.showinfo("提示", "处理完成！\n输出路径：" + output_path + "\\" + file.split(".")[0] + save_time + ".docx")
+            save_time, is_done = fixWord(input_path, file, output_path, time_ipt, page_ipt, img_ipt, version_ipt)
+            if is_done:
+                messagebox.showinfo("提示", "处理完成！\n输出路径：" + output_path + "\\" + file.split(".")[0] + save_time + ".docx")
+        done()
 
 
 if __name__ == '__main__':
-    VERSION = "v4.0"
-    UPDATETIME = "2025年6月17日"
+    VERSION = "v4.3.5"
+    UPDATETIME = "2026年2月28日"
     """
         !!!!!!!!!!!!
-        打包时把此路径改为相对路径，并把图图片复制粘贴到打包后的根目录里
+        打包时把此路径改为相对路径，并把图片复制粘贴到打包后的根目录里
         !!!!!!!!!!!!
     """
     icon_path = getcwd() + "\\static\\icon.ico"
@@ -558,12 +604,13 @@ if __name__ == '__main__':
     }
     # 版本文本
     VERSIONTEXT1 = """当前配置：
-    版     本：学校留存
+    版     本：默认格式
     页 边  距：上3.7cm 下3.5cm 左2.8cm 右2.6cm
     标     题：小二号 方正小标宋简体  33磅
     正     文：四号 仿宋_GB2312 28磅
     一级 标题：四号 黑体 28磅
     二级 标题：四号 楷体_GB2312 28磅
+    三级 标题：四号 仿宋_GB2312 28磅
     数字&英文：四号 TimesNewRoman字体
     页     码：四号 宋体
 """
@@ -574,6 +621,7 @@ if __name__ == '__main__':
     正     文：三号 仿宋_GB2312 28磅
     一级 标题：三号 黑体 28磅
     二级 标题：三号 楷体_GB2312 28磅
+    三级 标题：三号 仿宋_GB2312 28磅
     数字&英文：三号 TimesNewRoman字体
     页     码：四号 宋体
 """
@@ -590,6 +638,7 @@ if __name__ == '__main__':
     TEXTMARGIN = 28  # 正文：一般固定值28磅
     LEVEL1FONT = '黑体'  # 一级标题：黑体
     LEVEL2FONT = '楷体_GB2312'  # 二级标题：楷体_GB2312
+    LEVEL3FONT = '仿宋_GB2312'  # 三级标题：仿宋_GB2312
     NUMBERFONT = 'Times New Roman'  # 数字&英文：TimesNewRoman字体
     # 页码-磅值
     PAGENUMBERFONTSIZE = FONTSIZEDICT["四号"]  # 页码：四号
@@ -597,17 +646,18 @@ if __name__ == '__main__':
     # 配置信息end
     # tkinter start
     tk = Tk()
-    tk.title(f"文档处理工具 {VERSION} （学校定制版）")
+    tk.title(f"文档处理工具 {VERSION} （固定格式版）")
     screen_width = tk.winfo_screenwidth()
     screen_height = tk.winfo_screenheight()
     tk.iconbitmap(icon_path)
     tk.geometry("1000x580")
+    tk.minsize(810, 540)  # 最小宽高
     # 刷新窗口参数
     tk.update()
     # 计算窗口居中时左上角的坐标
     x = (screen_width - tk.winfo_width()) // 2
     y = (screen_height - tk.winfo_height()) // 2
-    tk.geometry(f"+{x}+{y-30}")
+    tk.geometry(f"+{x}+{y-50}")
     # tk.attributes("-alpha", 0.8)
     windw_width = tk.winfo_width()
     windw_height = tk.winfo_height()
@@ -692,8 +742,8 @@ if __name__ == '__main__':
     merge_button.grid(row=0, column=0, padx=5, pady=5)
     label_ = Label(btn_frm, font=("Ya Hei", 10), text=" ")
     label_.grid(row=0, column=1, padx=5, pady=5, sticky="e")
-    merge_button = Button(btn_frm, font=("Ya Hei", 10), text="重置", fg="blue", command=reSet)
-    merge_button.grid(row=0, column=2, padx=5, pady=5)
+    reset_button = Button(btn_frm, font=("Ya Hei", 10), text="重置", fg="blue", command=reSet)
+    reset_button.grid(row=0, column=2, padx=5, pady=5)
     # # 虚线分隔线
     # separator_ = Frame(infos_frm)
     # separator_.grid(row=0, column=1, padx=34, pady=5)
@@ -714,6 +764,10 @@ if __name__ == '__main__':
     play_history_scroll_bar_h = ttk.Scrollbar(play_history_frm, orient="horizontal", command=play_history_frm_listbox.xview)
     play_history_scroll_bar_h.grid(row=2, column=0, sticky='we')
     play_history_frm_listbox.configure(yscrollcommand=play_history_scroll_bar_v.set, xscrollcommand=play_history_scroll_bar_h.set)
+    # 绑定右键点击事件到创建弹出菜单的函数
+    play_history_frm_listbox.bind("<Button-3>", create_popup_menu)
+    # 绑定双击事件到列表框上
+    play_history_frm_listbox.bind("<Double-1>", lambda: open_folder(1))
     # 分隔线
     # separator = Frame(tk, height=2, bd=1, relief=SUNKEN)
     # separator.pack(fill="x", padx=2, pady=2)
