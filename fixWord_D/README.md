@@ -3,8 +3,8 @@
 # fixWord
 ## 项目简介
 fixWord_D是一个基于python开发的Word文档修复工具，核心功能源自[fixWord](https://gitee.com/cxmStudio/fixWord)，能够自动修复Word文档中的常见错误，如拼写错误、格式错误等。
-- [→访问主页（Gitee）](https://gitee.com/cxmStudio/fixWord/fixWord_D)
-- [→访问主页（Github）](https://github.com/Sam-CXM/fixWord/fixWord_D)
+- [→访问主页（Gitee）](https://gitee.com/cxmStudio/fixWord/tree/main/fixWord_D)
+- [→访问主页（Github）](https://github.com/Sam-CXM/fixWord/tree/main/fixWord_D)
 ## 项目结构示意图
 思维导图（致谢[@NaoTu](https://github.com/NaoTu/DesktopNaotu)）
 <p align='center'><img src="/fixWord_D/static/fixWord_D思维导图.png"></p>

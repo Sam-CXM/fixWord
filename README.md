@@ -3,8 +3,6 @@
 # fixWord
 ## 项目简介
 fixWord是一个基于python开发的Word文档修复工具，能够自动修复Word文档中的常见错误，如拼写错误、格式错误等。
-- [→访问主页（Gitee）](https://gitee.com/cxmStudio/fixWord)
-- [→访问主页（Github）](https://github.com/Sam-CXM/fixWord)
 ## 开发环境
 - Python 3.10.7
 - python-docx 1.2.0
@@ -132,12 +130,12 @@ fixWord是一个基于python开发的Word文档修复工具，能够自动修复
 ### 数字/英文
 - 数字为 `1` `2` `3` `4` `5` `6` `7` `8` `9` `0`；
 - 英文为 `a` `b` `c` `d` `e` `f` `g` `h` `i` `j` `k` `l` `m` `n` `o` `p` `q` `r` `s` `t` `u` `v` `w` `x` `y` `z` `A` `B` `C` `D` `E` `F` `G` `H` `I` `J` `K` `L` `M` `N` `O` `P` `Q` `R` `S` `T` `U` `V` `W` `X` `Y` `Z` ；（26个英文大小写字母）
-## 未来版本
-### 全新D(DIY)版本
+##  全新D(DIY)版本
 - 支持用户自定义输出格式：`页边距`、`字体`、`字号`、`行距`、`各级标题格式`等；
-- 支持用户自定义输出路径；
-- 支持用户自定义输出文件名；
-<p align='center'>全新版本正在开发中，敬请期待...</p>
+- 批量处理；
+- 配置保存/导入；
+- [→访问主页（Gitee）](https://gitee.com/cxmStudio/fixWord/tree/main/fixWord_D)
+- [→访问主页（Github）](https://github.com/Sam-CXM/fixWord/tree/main/fixWord_D)
 
 ## 联系方式
 - QQ: **3038693133**
