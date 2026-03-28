@@ -1120,6 +1120,8 @@ def main():
             img_ipt = data["main"]["img_ipt"]
             merge_button.config(state="disabled", cursor="wait", text="正在处理")
             reset_button.config(state="disabled")
+            merge_button.update_idletasks()
+            reset_button.update_idletasks()
             if file_type == "dir_path":
                 have_docx = 0
                 done_list = []
@@ -1177,6 +1179,7 @@ if __name__ == '__main__':
         !!!!!!!!!!!!
         打包时把此路径改为相对路径，并把图片复制粘贴到打包后的根目录里
         !!!!!!!!!!!!
+        pyinstaller -D -w -n fixWord_v5.0.0 -i icon.ico fix_word.py
     """
     icon_path = getcwd() + "\\static\\icon.ico"
     wxgzh_path = getcwd() + "\\static\\wxgzh.jpg"
