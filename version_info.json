@@ -1,37 +1,34 @@
 {
-    "version": "5.0.0",
-    "versionName": "v5.0.0",
+    "version": "5.1.4.14",
+    "versionName": "v5.1.4.14",
     "versionType": "release",
-    "updateDate": 1774661845,
+    "updateDate": 1777687745,
     "tagUrl": {
-        "github": "https://github.com/Sam-CXM/fixWord/releases/tag/v5.0.0",
-        "gitee": "https://gitee.com/cxmStudio/fixWord/releases/tag/v5.0.0"
+        "github": "https://github.com/Sam-CXM/fixWord/releases/tag/v5.1.4.14",
+        "gitee": "https://gitee.com/cxmStudio/fixWord/releases/tag/v5.1.4.14"
     },
     "downloadUrl": {
-        "github": "https://github.com/Sam-CXM/fixWord/releases/download/v5.0.0/fixWord_v5.0.0.zip",
-        "gitee": "https://gitee.com/cxmStudio/fixWord/releases/download/v5.0.0/fixWord_v5.0.0.zip"
+        "github": "https://github.com/Sam-CXM/fixWord/releases/download/v5.1.4.14/fixWord_v5.1.4.14.zip",
+        "gitee": "https://gitee.com/cxmStudio/fixWord/releases/download/v5.1.4.14/fixWord_v5.1.4.14.zip"
     },
     "updateLog": [
-        "【新增】加入在线更新功能；",
-        "【新增】合并fix_word功能（自定义选择文件或文件夹）；",
-        "【新增】批量处理时成功文件个数提示；",
-        "【新增】日志功能，更好地排除全局错误问题；",
-        "【修复】Spinbox自定义输入时的逻辑判断；",
-        "【修复】设置行距磅值和倍的数据关系逻辑；",
-        "【修复】下拉框输入其他内容会报错的问题；",
-        "【修复】解构fixWord函数返回值错误的问题；",
-        "【修复】导入配置行距下拉框禁用的逻辑；",
-        "【修复】页边距调整步长不规律的问题；",
-        "【修复】标题的磅值设置后不起作用的问题；",
-        "【优化】首段注释中大序号不正确的问题；",
-        "【优化】选择【固定值】项原有数据覆盖的问题；",
-        "【优化】段落函数；",
-        "【优化】配置文件内容；",
-        "【优化】提示框信息，提示更准确；",
-        "【优化】视图尺寸；",
-        "【优化】增大了操作日志的字体，处理结果更清晰；",
-        "【优化】判断各个标题的方法；",
-        "【优化】其他问题；",
-        "【删除】右键菜单的横线和退出命令。"
+        "【新增】自动导入配置按钮；",
+        "【新增】识别换行符并替换为段落标记；",
+        "【新增】识别编号列表并替换为相应的标题序号，识别不到numbering.xml文件则跳过，但是会抛出提示信息；",
+        "【新增】菜单栏；",
+        "【优化】合并各标题级别识别函数；",
+        "【优化】替换函数新增两个空格格式：U+00A0（不间断空格）和\t（Tab缩进）；",
+        "【优化】统一处理日志和弹窗的先后顺序；",
+        "【优化】检查更新的字体颜色显示的不正确；",
+        "【优化】函数整合成类；",
+        "【优化】界面用ttk包美化；",
+        "【优化】错误弹窗包含完整错误信息；",
+        "【优化】开始处理和重置按钮的位置；",
+        "【优化】在线更新方式；",
+        "【优化】字体改为获取系统字体列表并排序，用户可自主选择；",
+        "【优化】部分代码；",
+        "【修复】左侧缩进为0；",
+        "【修复】行距、对齐方式下拉菜单为只读；",
+        "【修复】段落行距输入错误时的处理。"
     ]
 }
