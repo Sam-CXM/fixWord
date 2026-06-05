@@ -1,34 +1,24 @@
 {
-    "version": "5.1.4.14",
-    "versionName": "v5.1.4.14",
+    "version": "5.2.2.6",
+    "versionName": "v5.2.2.6",
     "versionType": "release",
-    "updateDate": 1777687745,
+    "updateDate": 1780672995,
     "tagUrl": {
-        "github": "https://github.com/Sam-CXM/fixWord/releases/tag/v5.1.4.14",
-        "gitee": "https://gitee.com/cxmStudio/fixWord/releases/tag/v5.1.4.14"
+        "github": "https://github.com/Sam-CXM/fixWord/releases/tag/v5.2.2.6",
+        "gitee": "https://gitee.com/cxmStudio/fixWord/releases/tag/v5.2.2.6"
     },
     "downloadUrl": {
-        "github": "https://github.com/Sam-CXM/fixWord/releases/download/v5.1.4.14/fixWord_v5.1.4.14.zip",
-        "gitee": "https://gitee.com/cxmStudio/fixWord/releases/download/v5.1.4.14/fixWord_v5.1.4.14.zip"
+        "github": "https://github.com/Sam-CXM/fixWord/releases/download/v5.2.2.6/fixWord_v5.2.2.6.zip",
+        "gitee": "https://gitee.com/cxmStudio/fixWord/releases/download/v5.2.2.6/fixWord_v5.2.2.6.zip"
     },
     "updateLog": [
-        "【新增】自动导入配置按钮；",
-        "【新增】识别换行符并替换为段落标记；",
-        "【新增】识别编号列表并替换为相应的标题序号，识别不到numbering.xml文件则跳过，但是会抛出提示信息；",
-        "【新增】菜单栏；",
-        "【优化】合并各标题级别识别函数；",
-        "【优化】替换函数新增两个空格格式：U+00A0（不间断空格）和\t（Tab缩进）；",
-        "【优化】统一处理日志和弹窗的先后顺序；",
-        "【优化】检查更新的字体颜色显示的不正确；",
-        "【优化】函数整合成类；",
-        "【优化】界面用ttk包美化；",
-        "【优化】错误弹窗包含完整错误信息；",
-        "【优化】开始处理和重置按钮的位置；",
-        "【优化】在线更新方式；",
-        "【优化】字体改为获取系统字体列表并排序，用户可自主选择；",
-        "【优化】部分代码；",
-        "【修复】左侧缩进为0；",
-        "【修复】行距、对齐方式下拉菜单为只读；",
-        "【修复】段落行距输入错误时的处理。"
+        "【新增】解压缩后自动删除压缩包；",
+        "【新增】开始处理添加提示；",
+        "【修复】字体默认方式；",
+        "【修复】总行距为0时，各标题行距输入框状态异常的问题；",
+        "【修复】配置另存为自动导入值为空，导致程序异常的问题；",
+        "【修复】添加页码前删除页脚内容；",
+        "【修复】有编号格式的文档图片丢失的问题；",
+        "【优化】日志显示精确到毫秒。"
     ]
 }

@@ -7,9 +7,9 @@
 
 开发作者：晨小明
 开发日期：2024/09/22
-开发版本：v5.4.14_Dev
-发布版本：v5.1.4.14_Release
-修改日期：2026/05/02
+开发版本：v5.2.2.6_Dev
+发布版本：v5.2.2.6_Release
+修改日期：2026/06/05
 主要功能：一、支持批量文档处理，输入文件夹路径，自动判断。
          二、读取.docx文件并设置格式；
          三、支持自定义格式设置：字体、字号、页边距、行距
@@ -30,24 +30,14 @@
          七、输出文件名称含时间点，方便标记（可选）
          （注，本程序无法处理图片格式，如果图片独立成段，本程序所用API识别到图片会被默认是空段落，为了防止图片删除，只能放弃处理空段落及图片格式）
 更新日志：
-【新增】自动导入配置按钮；
-【新增】识别换行符并替换为段落标记；
-【新增】识别编号列表并替换为相应的标题序号，识别不到numbering.xml文件则跳过，但是会抛出提示信息；
-【新增】菜单栏；
-【优化】合并各标题级别识别函数；
-【优化】替换函数新增两个空格格式：U+00A0（不间断空格）和\t（Tab缩进）；
-【优化】统一处理日志和弹窗的先后顺序；
-【优化】检查更新的字体颜色显示的不正确；
-【优化】函数整合成类；
-【优化】界面用ttk包美化；
-【优化】错误弹窗包含完整错误信息；
-【优化】开始处理和重置按钮的位置；
-【优化】在线更新方式；
-【优化】字体改为获取系统字体列表并排序，用户可自主选择；
-【优化】部分代码；
-【修复】左侧缩进为0；
-【修复】行距、对齐方式下拉菜单为只读；
-【修复】段落行距输入错误时的处理。
+【新增】解压缩后自动删除压缩包；
+【新增】开始处理添加提示；
+【修复】字体默认方式；
+【修复】总行距为0时，各标题行距输入框状态异常的问题；
+【修复】配置另存为自动导入值为空，导致程序异常的问题；
+【修复】添加页码前删除页脚内容；
+【修复】有编号格式的文档图片丢失的问题；
+【优化】日志显示精确到毫秒。
 """
 
 from re import sub
@@ -58,7 +48,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_PARAGRAPH_ALIGNMENT  # 设置�
 from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.table import CT_Tbl
-from os import listdir, path, makedirs, getcwd, startfile
+from os import listdir, path, makedirs, getcwd, startfile, remove
 from tkinter import Tk, filedialog, messagebox, Menu, ttk, Listbox, StringVar, END, Toplevel, Canvas
 from tkinter import font as tkFont
 from datetime import datetime
@@ -146,6 +136,9 @@ def upGrade():
                                 f.extractall(zipout_path)
                             writeHistory(f"解压完成！请重新打开本软件！解压路径：{zipout_path}")
                             messagebox.showinfo("提示", f"解压完成！请重新打开本软件！解压路径：{zipout_path}")
+                            # 删除压缩包
+                            if path.isfile(save_file_name):
+                                remove(save_file_name)
                         except PermissionError:
                             writeHistory(f"解压失败，文件被占用，请关闭")
                             messagebox.showerror("错误", f'解压失败，文件被占用，请关闭"{zipout_path}/fixWord_{latest_version}.exe"或保存至其他路径。')
@@ -210,6 +203,7 @@ class DocxProcessing():
         """设置页脚，添加页码"""
         # print(len(docx.sections))
         def AddFooterNumber(p):
+            p.clear()
             t1 = p.add_run("— ")
             font = t1.font
             font.name = '宋体'
@@ -436,11 +430,7 @@ class DocxProcessing():
     def fixWord(docx_path, file, output_path, time_ipt, page_ipt, img_ipt):
         """文档处理"""
         # 自动编号识别 https://www.iotword.com/22828.html 并新建文档
-        try:
-            paragraphs, new_docx = WithNumberDocxReader(docx_path).texts
-        except Exception as e:
-            writeLog(f"提示：无法获取文档编号部分：{e if e else '未知原因'}")
-            new_docx = Document(docx_path)
+        new_docx = WithNumberDocxReader(docx_path).texts
 
         # 页边距
         DocxProcessing.margin(new_docx)
@@ -556,29 +546,35 @@ class WithNumberDocxReader:
         self.gap_text = gap_text
         self.cnt = {}
         self.cache = {}
-        self.result = []
 
     @property
     def texts(self):
-        if self.result:
-            return self.result.copy()
         self.cnt.clear()
         self.cache.clear()
         for paragraph in self.docx.paragraphs:
-            number_text = self.get_number_text(paragraph._element.pPr.numPr)
-            self.result.append(number_text + paragraph.text)
-        # 新建文档
-        new_docx = Document()
-        for paragraph in self.result.copy():
-            new_docx.add_paragraph(paragraph, style="Normal")
+            try:
+                number_text = self.get_number_text(paragraph._element.pPr.numPr)
+            except Exception as e:
+                writeLog(f"提示：无法获取文档编号部分：{e if e else '未知原因'}")
+                number_text = ""
+            # 先获取旧段落文本
+            p_text = paragraph.text
+            if number_text:
+                # 如果有编号，则清除旧段落内容和样式
+                paragraph.clear()
+                # 如果编号样式存在，则清除旧段落编号样式
+                if paragraph._element.pPr.numPr is not None:
+                    paragraph._element.pPr.numPr.clear()
+                # 拼接编号文本和段落文本
+                paragraph.text = number_text + p_text
 
-        return self.result.copy(), new_docx
+        return self.docx
 
     def get_style_data(self):
         try:
             numbering_part = self.docx.part.numbering_part._element
         except Exception as e:
-            writeLog(f"未找到编号列表！{e + '，' if e else ''}文件：{self.docx_path}")
+            writeLog(f"未找到编号列表！{f'{e}，' if e else ''}文件：{self.docx_path}")
             return {}
         abstractId2numId = {num.abstractNumId.val: num.numId for num in numbering_part.num_lst}
         numId2style = {}
@@ -1020,7 +1016,7 @@ class CreateFrame():
         font_name_frm_combox = ttk.Combobox(font_name_frm, width=22, font=("Ya Hei", 10), name=self.title_txt, state="readonly")  # 字体下拉框盒子
         font_name_frm_combox.grid(row=self.row, column=1, padx=2, pady=5)
         font_name_frm_combox['values'] = sorted(FONTS)
-        font_name_frm_combox.current(308)
+        font_name_frm_combox.current(sorted(FONTS).index("宋体"))
         font_size_frm = ttk.Frame(self.frm)  # 字号选择下拉框
         font_size_frm.grid(row=self.row, column=2, sticky="n")
         font_size_frm_lbl = ttk.Label(font_size_frm, text="字号：", font=("Ya Hei", 10, "bold"))  # 字号文本
@@ -1115,7 +1111,7 @@ class LogicalEvents():
             ls_frm_lbl_b.config(text="磅")
         elif ls_frm_vlu.get() == "固定值":
             ls_ent.config(state='normal')
-            if int(ls_ent.get()) < 12:
+            if float(ls_ent.get()) < 12:
                 ls_ent.delete(0, END)  # 删除所有文本
                 ls_ent.insert(0, "12")  # 设置新的默认值
             ls_ent.config(state='normal')
@@ -1144,6 +1140,13 @@ class LogicalEvents():
 
     def spacingLSpb(spacing_l_ent):
         """全文行距统一事件"""
+        def spacingLSpbEvent(ls_frm_combox, ls_ent):
+            combox = ls_frm_combox.get()
+            if combox == "固定值" or combox == "最小值" or combox == "多倍":
+                ls_ent.config(state="normal")
+            else:
+                ls_ent.config(state="disabled")
+
         global data
         l_ent_vlu = float(spacing_l_ent.get())
         if l_ent_vlu > 0:
@@ -1156,12 +1159,12 @@ class LogicalEvents():
             data["title_font"]["font_ls_vlu"] = data["1title_font"]["font_ls_vlu"] = data["2title_font"]["font_ls_vlu"] = data["3title_font"]["font_ls_vlu"] = data["mb_font"]["font_ls_vlu"] = data["num_font"]["font_ls_vlu"] = l_ent_vlu
             data["title_font"]["font_ls_lbl_txt"] = data["1title_font"]["font_ls_lbl_txt"] = data["2title_font"]["font_ls_lbl_txt"] = data["3title_font"]["font_ls_lbl_txt"] = data["mb_font"]["font_ls_lbl_txt"] = data["num_font"]["font_ls_lbl_txt"] = "磅"
         else:
-            font_title_ls_frm_combox.config(state="readonly"), font_title_ls_ent.config(state="normal")
-            font_title_ls_frm1_combox.config(state="readonly"), font_title_ls_ent1.config(state="normal")
-            font_title_ls_frm2_combox.config(state="readonly"), font_title_ls_ent2.config(state="normal")
-            font_title_ls_frm3_combox.config(state="readonly"), font_title_ls_ent3.config(state="normal")
-            font_mb_ls_frm_combox.config(state="readonly"), font_mb_ls_ent.config(state="normal")
-            font_num_ls_frm_combox.config(state="readonly"), font_num_ls_ent.config(state="normal")
+            font_title_ls_frm_combox.config(state="readonly"), spacingLSpbEvent(font_title_ls_frm_combox, font_title_ls_ent)
+            font_title_ls_frm1_combox.config(state="readonly"), spacingLSpbEvent(font_title_ls_frm1_combox, font_title_ls_ent1)
+            font_title_ls_frm2_combox.config(state="readonly"), spacingLSpbEvent(font_title_ls_frm2_combox, font_title_ls_ent2)
+            font_title_ls_frm3_combox.config(state="readonly"), spacingLSpbEvent(font_title_ls_frm3_combox, font_title_ls_ent3)
+            font_mb_ls_frm_combox.config(state="readonly"), spacingLSpbEvent(font_mb_ls_frm_combox, font_mb_ls_ent)
+            font_num_ls_frm_combox.config(state="readonly"), spacingLSpbEvent(font_num_ls_frm_combox, font_num_ls_ent)
             data = SystemEvents.getUserInput()
 
     def importIni(auto_import_ini_vlu):
@@ -1211,7 +1214,7 @@ class SystemEvents():
         input_path = path_entry.get().replace("/", "\\")
         output_path = input_path + "\output"
         # 获取数值
-        ini_impt_ipt = auto_import_ini_vlu.get()
+        ini_impt_ipt = auto_import_ini_vlu.get() or "0"
         font_title_name, font_title_size, font_title_ls, font_ls_value, font_ls_lbl_txt = SystemEvents.getSysFonts(font_title_name_frm_combox), font_title_size_frm_combox.get(), font_title_ls_frm_combox.get(), font_ls_vlu.get(), font_ls_frm_lbl_b.cget("text")
         font_title_name1, font_title_size1, font_title_ls1, font_ls_value1, font_ls_lbl_txt1 = SystemEvents.getSysFonts(font_title_name_frm1_combox), font_title_size_frm1_combox.get(), font_title_ls_frm1_combox.get(), font_ls_vlu1.get(), font_ls_frm_lbl_b1.cget("text")
         font_title_name2, font_title_size2, font_title_ls2, font_ls_value2, font_ls_lbl_txt2 = SystemEvents.getSysFonts(font_title_name_frm2_combox), font_title_size_frm2_combox.get(), font_title_ls_frm2_combox.get(), font_ls_vlu2.get(), font_ls_frm_lbl_b2.cget("text")
@@ -1396,12 +1399,14 @@ def aboutTk():
     # 晨小明工作室
     cxm_frm = ttk.Frame(bottom_frm)
     cxm_frm.pack()
+    global cxm_image_new  # 声明为全局变量，防止图片被垃圾回收
     original_image = Image.open(cxm_path)
     resized_image = original_image.resize((round(original_image.width / 21), round(original_image.height / 21)))  # 缩放图片到指定大小
     cxm_image_new = ImageTk.PhotoImage(resized_image)
-    cv_cxm = Canvas(cxm_frm, width=110, height=cxm_image_new.height(), highlightthickness=0)
-    cv_cxm.create_image(5, 0, image=cxm_image_new, anchor="nw")
-    cv_cxm.grid(row=0, column=0)
+    cv_cxm = Canvas(cxm_frm, width=cxm_image_new.width(), height=cxm_image_new.height(), highlightthickness=0)
+    cv_cxm.create_image(0, 0, image=cxm_image_new, anchor="nw")
+    cv_cxm.grid(row=0, column=0, pady=(20, 10))
+
     bottom_info_frm = ttk.Frame(bottom_frm)
     bottom_info_frm.pack()
     bottom_label_a = ttk.Label(bottom_info_frm, text="作者：晨小明")
@@ -1424,23 +1429,24 @@ def aboutTk():
 
 def writeHistory(text=""):
     """写入历史记录"""
-    output_time = datetime.now().strftime("%m-%d %H:%M:%S")
-    output_txt = output_time + "    " + text
+    time_stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    output_txt = time_stamp + "    " + text
     play_history_frm_listbox.insert(END, output_txt)
     play_history_frm_listbox.update()
     print(f"··>提示<·· {output_txt}")
     # 设置滚动条位置到最大值，即拖动到最底部
     play_history_frm_listbox.yview_moveto(1)
-    # play_history_frm_listbox.xview_moveto(1)
 
 
-def writeLog(log):
+def writeLog(log=""):
     """写入日志"""
-    error_log_path = getcwd() + f"\\error_log_{datetime.now().strftime('%Y%m%d')}.txt"
+    now = datetime.now()
+    time_stamp = now.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    error_log_path = getcwd() + f"\\error_log.txt"
     if not path.isfile(error_log_path):
         open(error_log_path, 'w', encoding="utf-8").close()
     with open(error_log_path, "a", encoding="utf-8") as f:
-        f.write(datetime.now().strftime("%H:%M:%S") + "    " + log + "\n")
+        f.write(time_stamp + "    " + log + "\n")
 
 
 def done():
@@ -1452,12 +1458,12 @@ def done():
 def reSet():
     """重置"""
     global data
-    font_title_name_frm_combox.current(308), font_title_size_frm_combox.current(0), font_title_ls_frm_combox.current(0), font_ls_vlu.set("1"), font_ls_frm_lbl_b.config(text="倍"), font_title_ls_ent.config(state="disabled")
-    font_title_name_frm1_combox.current(308), font_title_size_frm1_combox.current(0), font_title_ls_frm1_combox.current(0), font_ls_vlu1.set("1"), font_ls_frm_lbl_b1.config(text="倍"), font_title_ls_ent1.config(state="disabled")
-    font_title_name_frm2_combox.current(308), font_title_size_frm2_combox.current(0), font_title_ls_frm2_combox.current(0), font_ls_vlu2.set("1"), font_ls_frm_lbl_b2.config(text="倍"), font_title_ls_ent2.config(state="disabled")
-    font_title_name_frm3_combox.current(308), font_title_size_frm3_combox.current(0), font_title_ls_frm3_combox.current(0), font_ls_vlu3.set("1"), font_ls_frm_lbl_b3.config(text="倍"), font_title_ls_ent3.config(state="disabled")
-    font_mb_name_frm_combox.current(308), font_mb_size_frm_combox.current(0), font_mb_ls_frm_combox.current(0), font_mb_ls_vlu.set("1"), font_mb_ls_frm_lbl_b.config(text="倍"), font_mb_ls_ent.config(state="disabled")
-    font_num_name_frm_combox.current(308), font_num_size_frm_combox.current(0), font_num_ls_frm_combox.current(0), font_num_ls_vlu.set("1"), font_num_ls_frm_lbl_b.config(text="倍"), font_num_ls_ent.config(state="disabled")
+    font_title_name_frm_combox.current(sorted(FONTS).index("宋体")), font_title_size_frm_combox.current(0), font_title_ls_frm_combox.current(0), font_ls_vlu.set("1"), font_ls_frm_lbl_b.config(text="倍"), font_title_ls_ent.config(state="disabled")
+    font_title_name_frm1_combox.current(sorted(FONTS).index("宋体")), font_title_size_frm1_combox.current(0), font_title_ls_frm1_combox.current(0), font_ls_vlu1.set("1"), font_ls_frm_lbl_b1.config(text="倍"), font_title_ls_ent1.config(state="disabled")
+    font_title_name_frm2_combox.current(sorted(FONTS).index("宋体")), font_title_size_frm2_combox.current(0), font_title_ls_frm2_combox.current(0), font_ls_vlu2.set("1"), font_ls_frm_lbl_b2.config(text="倍"), font_title_ls_ent2.config(state="disabled")
+    font_title_name_frm3_combox.current(sorted(FONTS).index("宋体")), font_title_size_frm3_combox.current(0), font_title_ls_frm3_combox.current(0), font_ls_vlu3.set("1"), font_ls_frm_lbl_b3.config(text="倍"), font_title_ls_ent3.config(state="disabled")
+    font_mb_name_frm_combox.current(sorted(FONTS).index("宋体")), font_mb_size_frm_combox.current(0), font_mb_ls_frm_combox.current(0), font_mb_ls_vlu.set("1"), font_mb_ls_frm_lbl_b.config(text="倍"), font_mb_ls_ent.config(state="disabled")
+    font_num_name_frm_combox.current(sorted(FONTS).index("宋体")), font_num_size_frm_combox.current(0), font_num_ls_frm_combox.current(0), font_num_ls_vlu.set("1"), font_num_ls_frm_lbl_b.config(text="倍"), font_num_ls_ent.config(state="disabled")
     if font_title_ls_frm_combox.cget("state").string == "disabled":
         font_title_ls_frm_combox.configure(state="readonly")
         font_title_ls_frm1_combox.configure(state="readonly")
@@ -1507,6 +1513,7 @@ def main():
             reset_button.config(state="disabled")
             merge_button.update_idletasks()
             reset_button.update_idletasks()
+            writeHistory("开始处理...")
             if file_type == "dir_path":
                 have_docx = 0
                 done_list = []
@@ -1561,19 +1568,19 @@ def main():
             tb_next = tb_next.tb_next
         writeLog(f"Info: {e}")
         writeHistory(f"程序出错！请截图并联系作者！Filename：{tb_next_.tb_frame.f_code.co_filename}，Function：{tb_next_.tb_frame.f_code.co_name}，Line：{tb_next_.tb_lineno}，Info：{e}")
-        messagebox.showerror("错误", f"程序出错！请截图并联系作者！\n{err_out + str(e)}")
+        messagebox.showerror("错误", f"程序出错！请截图并联系作者！\n{err_out + 'Info: '+ str(e)}")
     finally:
         done()
 
 
 if __name__ == '__main__':
-    VERSION = "v5.1.4.14"
-    UPDATETIME = "2026年5月2日"
+    VERSION = "v5.2.2.6"
+    UPDATETIME = "2026年6月5日"
     """
         !!!!!!!!!!!!
         打包时把此路径改为相对路径，并把图片复制粘贴到打包后的根目录里
         !!!!!!!!!!!!
-        pyinstaller -D -w fix_word.py -i static/icon.ico -n fixWord_v5.1.4.14
+        pyinstaller -D -w fix_word.py -i static/icon.ico -n fixWord_v5.2.2.6
     """
     icon_path = getcwd() + "\\static\\icon.ico"
     wxgzh_path = getcwd() + "\\static\\wxgzh.jpg"
