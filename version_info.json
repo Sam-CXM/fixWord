@@ -1,24 +1,25 @@
 {
-    "version": "5.2.2.6",
-    "versionName": "v5.2.2.6",
+    "version": "5.3.3.6",
+    "versionName": "v5.3.3.6",
     "versionType": "release",
-    "updateDate": 1780672995,
+    "updateDate": 1782536182,
     "tagUrl": {
-        "github": "https://github.com/Sam-CXM/fixWord/releases/tag/v5.2.2.6",
-        "gitee": "https://gitee.com/cxmStudio/fixWord/releases/tag/v5.2.2.6"
+        "github": "https://github.com/Sam-CXM/fixWord/releases/tag/v5.3.3.6",
+        "gitee": "https://gitee.com/cxmStudio/fixWord/releases/tag/v5.3.3.6"
     },
     "downloadUrl": {
-        "github": "https://github.com/Sam-CXM/fixWord/releases/download/v5.2.2.6/fixWord_v5.2.2.6.zip",
-        "gitee": "https://gitee.com/cxmStudio/fixWord/releases/download/v5.2.2.6/fixWord_v5.2.2.6.zip"
+        "github": "https://github.com/Sam-CXM/fixWord/releases/download/v5.3.3.6/fixWord_v5.3.3.6.zip",
+        "gitee": "https://gitee.com/cxmStudio/fixWord/releases/download/v5.3.3.6/fixWord_v5.3.3.6.zip"
     },
     "updateLog": [
-        "【新增】解压缩后自动删除压缩包；",
-        "【新增】开始处理添加提示；",
-        "【修复】字体默认方式；",
-        "【修复】总行距为0时，各标题行距输入框状态异常的问题；",
-        "【修复】配置另存为自动导入值为空，导致程序异常的问题；",
-        "【修复】添加页码前删除页脚内容；",
-        "【修复】有编号格式的文档图片丢失的问题；",
-        "【优化】日志显示精确到毫秒。"
+        "【新增】加粗设置；",
+        "【新增】四级标题设置及相关事件；",
+        "【新增】各标题左侧缩进、右侧缩进、首行缩进、段前、段后、行距设置；",
+        "【修复】更新返回值为空时，程序无响应；",
+        "【修复】删除压缩包逻辑；",
+        "【修复】数据校验逻辑；",
+        "【修复】替换三级标题后的顿号为点 1、——> 1.；",
+        "【优化】更改了界面布局；",
+        "【优化】代码结构。"
     ]
 }

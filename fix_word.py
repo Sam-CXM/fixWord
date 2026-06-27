@@ -7,9 +7,9 @@
 
 开发作者：晨小明
 开发日期：2024/09/22
-开发版本：v5.2.2.6_Dev
-发布版本：v5.2.2.6_Release
-修改日期：2026/06/05
+开发版本：v5.3.3.6_Dev
+发布版本：v5.3.3.6_Release
+修改日期：2026/06/27
 主要功能：一、支持批量文档处理，输入文件夹路径，自动判断。
          二、读取.docx文件并设置格式；
          三、支持自定义格式设置：字体、字号、页边距、行距
@@ -26,18 +26,20 @@
                 ")、" --> "）"
                 "?" --> "？"
                 " " --> ""
+                "1、" --> "1."
             2.其他格式
          七、输出文件名称含时间点，方便标记（可选）
          （注，本程序无法处理图片格式，如果图片独立成段，本程序所用API识别到图片会被默认是空段落，为了防止图片删除，只能放弃处理空段落及图片格式）
 更新日志：
-【新增】解压缩后自动删除压缩包；
-【新增】开始处理添加提示；
-【修复】字体默认方式；
-【修复】总行距为0时，各标题行距输入框状态异常的问题；
-【修复】配置另存为自动导入值为空，导致程序异常的问题；
-【修复】添加页码前删除页脚内容；
-【修复】有编号格式的文档图片丢失的问题；
-【优化】日志显示精确到毫秒。
+【新增】加粗设置；
+【新增】四级标题设置及相关事件；
+【新增】各标题左侧缩进、右侧缩进、首行缩进、段前、段后、行距设置；
+【修复】更新返回值为空时，程序无响应；
+【修复】删除压缩包逻辑；
+【修复】数据校验逻辑；
+【修复】替换三级标题后的顿号为点 1、——> 1.；
+【优化】更改了界面布局；
+【优化】代码结构。
 """
 
 from re import sub
@@ -49,9 +51,10 @@ from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.table import CT_Tbl
 from os import listdir, path, makedirs, getcwd, startfile, remove
-from tkinter import Tk, filedialog, messagebox, Menu, ttk, Listbox, StringVar, END, Toplevel, Canvas
+from tkinter import Tk, filedialog, messagebox, Menu, ttk, Listbox, StringVar, END, Toplevel, Canvas, IntVar
 from tkinter import font as tkFont
 from datetime import datetime
+from time import sleep
 from PIL import Image, ImageTk
 from webbrowser import open as webopen
 from configparser import ConfigParser, NoOptionError
@@ -82,7 +85,10 @@ def upGrade():
         return bar_tk, bar_title, progress_frm
 
     version_info = update()
-    if version_info is not None:
+    if version_info is None:
+        writeHistory("更新失败！")
+        messagebox.showinfo("提示", "更新失败！")
+    else:
         latest_version = version_info['versionName']
         if latest_version == VERSION:
             writeHistory("当前已是最新版本！")
@@ -136,9 +142,6 @@ def upGrade():
                                 f.extractall(zipout_path)
                             writeHistory(f"解压完成！请重新打开本软件！解压路径：{zipout_path}")
                             messagebox.showinfo("提示", f"解压完成！请重新打开本软件！解压路径：{zipout_path}")
-                            # 删除压缩包
-                            if path.isfile(save_file_name):
-                                remove(save_file_name)
                         except PermissionError:
                             writeHistory(f"解压失败，文件被占用，请关闭")
                             messagebox.showerror("错误", f'解压失败，文件被占用，请关闭"{zipout_path}/fixWord_{latest_version}.exe"或保存至其他路径。')
@@ -148,6 +151,19 @@ def upGrade():
                     else:
                         writeHistory(f"下载失败，请检查网络连接！\n{down_res.status_code}")
                         messagebox.showerror("提示", f"下载失败，请检查网络连接！\n{down_res.status_code}")
+                    # 删除压缩包
+                        # 删除压缩包
+                    for attempt in range(3):
+                        try:
+                            if path.isfile(save_file_name):
+                                remove(save_file_name)
+                            break
+                        except PermissionError:
+                            if attempt < 2:
+                                sleep(1)
+                            else:
+                                writeHistory(f"自动删除压缩包失败，请手动删除：{save_file_name}")
+                                messagebox.showwarning("警告", f"无法自动删除压缩包，文件可能被占用，请手动删除：\n{save_file_name}")
             else:
                 writeHistory("取消更新！")
                 messagebox.showinfo("提示", "取消更新！")
@@ -160,22 +176,24 @@ class Judge():
         index_list = [
             ["一、", "二、", "三、", "四、", "五、", "六、", "七、", "八、", "九、", "十、", "十一、", "十二、", "十三、", "十四、", "十五、", "十六、", "十七、", "十八、", "十九、", "二十、"],
             ["（一）", "（二）", "（三）", "（四）", "（五）", "（六）", "（七）", "（八）", "（九）", "（十）", "（十一）", "（十二）", "（十三）", "（十四）", "（十五）", "（十六）", "（十七）", "（十八）", "（十九）", "（二十）"],
-            ["1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.", "10.", "11.", "12.", "13.", "14.", "15.", "16.", "17.", "18.", "19.", "20."]
+            ["1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.", "10.", "11.", "12.", "13.", "14.", "15.", "16.", "17.", "18.", "19.", "20."],
+            ["（1）", "（2）", "（3）", "（4）", "（5）", "（6）", "（7）", "（8）", "（9）", "（10）", "（11）", "（12）", "（13）", "（14）", "（15）", "（16）", "（17）", "（18）", "（19）", "（20）"]
         ]
         for i in index_list:
             for j in i:
-                if j in p.text[:len(j) + 1] and index_list.index(i) != 2:
-                    if '。' in p.text:
-                        p.text = p.text.replace('。', '')
-                    if '？' in p.text:
-                        p.text = p.text.replace('？', '')
-                    if '：' in p.text:
-                        p.text = p.text.replace('：', '')
-                    if '；' in p.text:
-                        p.text = p.text.replace('；', '')
-                    return f"level{index_list.index(i) + 1}"
-                elif j in p.text[:len(j) + 1] and index_list.index(i) == 2:
-                    return f"level{index_list.index(i) + 1}"
+                if j in p.text[:len(j) + 1]:
+                    if index_list.index(i) == 0 or index_list.index(i) == 1:
+                        if '。' in p.text:
+                            p.text = p.text.replace('。', '')
+                        if '？' in p.text:
+                            p.text = p.text.replace('？', '')
+                        if '：' in p.text:
+                            p.text = p.text.replace('：', '')
+                        if '；' in p.text:
+                            p.text = p.text.replace('；', '')
+                        return f"level{index_list.index(i) + 1}"
+                    elif index_list.index(i) == 2 or index_list.index(i) == 3:
+                        return f"level{index_list.index(i) + 1}"
                 else:
                     continue
 
@@ -251,21 +269,44 @@ class DocxProcessing():
 
     def paragraphFun(is_title, p, is_level=""):
         """段落函数"""
-        def checkLineSpacing(data_font):
-            for key, value in data_font.items():
-                if key == "font_ls_vlu":
-                    try:
-                        float(value)
-                    except:
-                        writeHistory(f"控件名称：font_ls_vlu，错误值：{value}，已设置为 28 磅或输入有效数字后重试！")
-                        p.paragraph_format.line_spacing = Pt(28)  # 行距
-                        return
+        def setLineSpacing(data_font):
+            # 设置行距
             if data_font["font_ls_lbl_txt"] == "倍":
                 font_ls_vlu = float(data_font["font_ls_vlu"])
                 p.paragraph_format.element.pPr.spacing.set(qn("w:line"), f'{font_ls_vlu * 240}')
                 p.paragraph_format.element.pPr.spacing.set(qn("w:lineRule"), 'auto')
             else:
                 p.paragraph_format.line_spacing = Pt(float(data_font["font_ls_vlu"]))  # 行距
+            # 设置段前段后，统一使用底层XML设置间距，防止高层API刷新覆盖行距属性
+            pPr_spacing = p.paragraph_format.element.pPr.spacing
+            pPr_spacing.set(qn("w:before"), str(int(float(data_font["font_b_s_vlu"]) * 20)))  # 1磅 = 20 twips
+            pPr_spacing.set(qn("w:after"), str(int(float(data_font["font_a_s_vlu"]) * 20)))   # 1磅 = 20 twips
+            # 设置左右缩进，统一使用底层XML设置缩进，防止高层API生成冲突的Chars属性
+            pPr_ind = p.paragraph_format.element.pPr.ind
+            pPr_ind.set(qn("w:left"), str(int(float(data_font["font_l_idt_vlu"]) * 20)))  # 1磅 = 20 twips
+            pPr_ind.set(qn("w:right"), str(int(float(data_font["font_r_idt_vlu"]) * 20)))
+            # 设置首行缩进，显式移除可能引发冲突的Chars属性
+            if pPr_ind.get(qn("w:leftChars")) is not None:
+                del pPr_ind.attrib[qn("w:leftChars")]
+            if pPr_ind.get(qn("w:rightChars")) is not None:
+                del pPr_ind.attrib[qn("w:rightChars")]
+            # 移除首行缩进属性
+            if pPr_ind.get(qn("w:firstLine")) is not None:
+                del pPr_ind.attrib[qn("w:firstLine")]
+            first_line_idt = float(data_font["font_f_line_vlu"])
+            if first_line_idt > 0 and is_title != "odd_footer" and is_title != "even_footer":
+                first_line_indent = int(first_line_idt * 240)  # 1字符约等于12磅 = 240 twips
+                pPr_ind.set(qn("w:firstLineChars"), f'{first_line_idt * 100}')
+                pPr_ind.set(qn("w:firstLine"), str(first_line_indent))
+                # 移除可能存在的悬挂缩进属性，防止冲突
+                if pPr_ind.get(qn("w:hanging")) is not None:
+                    del pPr_ind.attrib[qn("w:hanging")]
+                if pPr_ind.get(qn("w:hangingChars")) is not None:
+                    del pPr_ind.attrib[qn("w:hangingChars")]
+            else:
+                pPr_ind.set(qn("w:firstLineChars"), '0')
+                pPr_ind.set(qn("w:firstLine"), '0')
+
         global data
         if p.paragraph_format.element.pPr is None:
             p.paragraph_format.element.append(parse_xml(r'<w:pPr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>'))
@@ -275,6 +316,7 @@ class DocxProcessing():
         # 判断 spacing 是否存在，方便后边设置行距
         if p.paragraph_format.element.pPr.spacing is None:
             p.paragraph_format.element.pPr.append(parse_xml(r'<w:spacing xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>'))
+        # 统一设置对齐方式
         pgp_almt = data["main"]["pgp_almt"]
         if pgp_almt == "居中":
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -284,9 +326,10 @@ class DocxProcessing():
             p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         else:
             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        # 各标题设置
         if is_title == "title":
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            checkLineSpacing(data["title_font"])
+            setLineSpacing(data["title_font"])
         elif is_title == "odd_footer":
             p.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
             p.paragraph_format.right_indent = Pt(14)
@@ -296,26 +339,17 @@ class DocxProcessing():
             p.paragraph_format.left_indent = Pt(14)
             p.paragraph_format.line_spacing = Pt(28)
         else:
-            checkLineSpacing(data["mb_font"])
+            setLineSpacing(data["mb_font"])
+            setLineSpacing(data["num_font"])
             if is_level == "level1":
-                checkLineSpacing(data["1title_font"])
+                setLineSpacing(data["1title_font"])
             elif is_level == "level2":
-                checkLineSpacing(data["2title_font"])
+                setLineSpacing(data["2title_font"])
             elif is_level == "level3":
-                checkLineSpacing(data["3title_font"])
-            p.paragraph_format.left_indent = 0
-            p.paragraph_format.right_indent = 0
-            p.paragraph_format.left_indent = Cm(float(data["indent"]["l_value"]))
-            p.paragraph_format.right_indent = Cm(float(data["indent"]["r_value"]))
-        p.paragraph_format.space_before = Pt(float(data["spacing"]["b_value"]))
-        p.paragraph_format.space_after = Pt(float(data["spacing"]["a_value"]))
-        first_line_idt = float(data["indent"]["f_value"])
-        if first_line_idt > 0 and is_title != "title" and is_title != "odd_footer" and is_title != "even_footer":
-            p.paragraph_format.first_line_indent = 0
-            p.paragraph_format.element.pPr.ind.set(qn("w:firstLineChars"), f'{first_line_idt * 100}')  # 首行缩进
-        else:
-            p.paragraph_format.first_line_indent = 0
-            p.paragraph_format.element.pPr.ind.set(qn("w:firstLineChars"), '0')  # 首行缩进
+                setLineSpacing(data["3title_font"])
+            elif is_level == "level4":
+                setLineSpacing(data["4title_font"])
+        # 统一设置孤行控制
         single_crl_value = data["main"]["single_crl_value"]
         if single_crl_value == "1":
             p.paragraph_format.widow_control = True
@@ -333,6 +367,16 @@ class DocxProcessing():
                 except Exception as e:
                     messagebox.showwarning("警告", f"字体大小输入错误：{size}， 请检查！{e}\n已重置为14")
                     return 14
+
+        def setFont(run, font_):
+            """设置字体"""
+            run.font.name = font_["font_name"]
+            run._element.rPr.rFonts.set(qn('w:eastAsia'), font_["font_name"])
+            run.font.size = Pt(checkFontSize(font_["font_size"]))
+            if font_["font_bold"] == 1:
+                run.bold = True
+            else:
+                run.bold = False
         global data
         if is_title == "title":
             run = p.add_run(i)
@@ -342,27 +386,29 @@ class DocxProcessing():
                 run.font.name = data["title_font"]["font_name"]
                 run._element.rPr.rFonts.set(qn('w:eastAsia'), data["title_font"]["font_name"])
             run.font.size = Pt(checkFontSize(data["title_font"]["font_size"]))
+            if data["title_font"]["font_bold"] == 1:
+                run.bold = True
+            else:
+                run.bold = False
         else:
             run_content = p.add_run(i)
             if is_digit == "num_or_let":
                 run_content.font.name = data["num_font"]["font_name"]
                 run_content.font.size = Pt(checkFontSize(data["num_font"]["font_size"]))
+                if data["num_font"]["font_bold"] == 1:
+                    run_content.bold = True
+                else:
+                    run_content.bold = False
             else:
-                run_content.font.name = data["mb_font"]["font_name"]
-                run_content._element.rPr.rFonts.set(qn('w:eastAsia'), data["mb_font"]["font_name"])
-                run_content.font.size = Pt(checkFontSize(data["mb_font"]["font_size"]))
+                setFont(run_content, data["mb_font"])
                 if is_level == "level1":
-                    run_content.font.name = data["1title_font"]["font_name"]
-                    run_content._element.rPr.rFonts.set(qn('w:eastAsia'), data["1title_font"]["font_name"])
-                    run_content.font.size = Pt(checkFontSize(data["1title_font"]["font_size"]))
+                    setFont(run_content, data["1title_font"])
                 elif is_level == "level2":
-                    run_content.font.name = data["2title_font"]["font_name"]
-                    run_content._element.rPr.rFonts.set(qn('w:eastAsia'), data["2title_font"]["font_name"])
-                    run_content.font.size = Pt(checkFontSize(data["2title_font"]["font_size"]))
+                    setFont(run_content, data["2title_font"])
                 elif is_level == "level3":
-                    run_content.font.name = data["3title_font"]["font_name"]
-                    run_content._element.rPr.rFonts.set(qn('w:eastAsia'), data["3title_font"]["font_name"])
-                    run_content.font.size = Pt(checkFontSize(data["3title_font"]["font_size"]))
+                    setFont(run_content, data["3title_font"])
+                elif is_level == "level4":
+                    setFont(run_content, data["4title_font"])
 
     def fixDocx(docx):
         """主要格式"""
@@ -531,6 +577,9 @@ class Replace():
             p.text = p.text.replace(')、', '）')
         if '）、' in p.text[:4]:
             p.text = p.text.replace('）、', '）')
+        # 替换数字后的、为.
+        if p.text[:3][0].isdigit() and '、' in p.text[:3]:
+            p.text = p.text[:3].replace('、', '.') + p.text[3:]
         return p
 
 
@@ -911,51 +960,58 @@ class InitFile():
                 data[section][key] = value
         # print(data)
         auto_import_ini_vlu.set(data['main']['auto_import'])
-        font_title_name_frm_combox.set(data['title_font']['font_name']), font_title_size_frm_combox.set(data['title_font']['font_size']), font_title_ls_frm_combox.set(data['title_font']['font_ls']), font_ls_vlu.set(data['title_font']['font_ls_vlu']), font_ls_frm_lbl_b.config(text=f"{data['title_font']['font_ls_lbl_txt']}")
-        font_title_name_frm1_combox.set(data['1title_font']['font_name']), font_title_size_frm1_combox.set(data['1title_font']['font_size']), font_title_ls_frm1_combox.set(data['1title_font']['font_ls']), font_ls_vlu1.set(data['1title_font']['font_ls_vlu']), font_ls_frm_lbl_b1.config(text=f"{data['1title_font']['font_ls_lbl_txt']}")
-        font_title_name_frm2_combox.set(data['2title_font']['font_name']), font_title_size_frm2_combox.set(data['2title_font']['font_size']), font_title_ls_frm2_combox.set(data['2title_font']['font_ls']), font_ls_vlu2.set(data['2title_font']['font_ls_vlu']), font_ls_frm_lbl_b2.config(text=f"{data['2title_font']['font_ls_lbl_txt']}")
-        font_title_name_frm3_combox.set(data['3title_font']['font_name']), font_title_size_frm3_combox.set(data['3title_font']['font_size']), font_title_ls_frm3_combox.set(data['3title_font']['font_ls']), font_ls_vlu3.set(data['3title_font']['font_ls_vlu']), font_ls_frm_lbl_b3.config(text=f"{data['3title_font']['font_ls_lbl_txt']}")
-        font_mb_name_frm_combox.set(data['mb_font']['font_name']), font_mb_size_frm_combox.set(data['mb_font']['font_size']), font_mb_ls_frm_combox.set(data['mb_font']['font_ls']), font_mb_ls_vlu.set(data['mb_font']['font_ls_vlu']), font_mb_ls_frm_lbl_b.config(text=f"{data['mb_font']['font_ls_lbl_txt']}")
-        font_num_name_frm_combox.set(data['num_font']['font_name']), font_num_size_frm_combox.set(data['num_font']['font_size']), font_num_ls_frm_combox.set(data['num_font']['font_ls']), font_num_ls_vlu.set(data['num_font']['font_ls_vlu']), font_num_ls_frm_lbl_b.config(text=f"{data['num_font']['font_ls_lbl_txt']}")
-        pgp_indent_l_vlu.set(data['indent']['l_value']), pgp_indent_r_vlu.set(data['indent']['r_value']), pgp_indent_f_vlu.set(data['indent']['f_value'])
-        spacing_b_ent.set(data['spacing']['b_value']), spacing_a_ent.set(data['spacing']['a_value']), spacing_l_ent.set(data['spacing']['l_value'])
+        font_title_name_frm_combox.set(data['title_font']['font_name']), font_title_size_frm_combox.set(data['title_font']['font_size']), font_title_ls_frm_combox.set(data['title_font']['font_ls']), font_ls_vlu.set(data['title_font']['font_ls_vlu']), font_ls_frm_lbl_b.config(text=f"{data['title_font']['font_ls_lbl_txt']}"), font_spacing_b_vlu.set(
+            data['title_font']['font_b_s_vlu']), font_spacing_a_vlu.set(data['title_font']['font_a_s_vlu']), font_indent_left_vlu.set(data['title_font']['font_l_idt_vlu']), font_indent_right_vlu.set(data['title_font']['font_r_idt_vlu']), font_first_line_vlu.set(data['title_font']['font_f_line_vlu']), font_bold_frm_vlu.set(data['title_font']['font_bold'])
+        font_title_name_frm1_combox.set(data['1title_font']['font_name']), font_title_size_frm1_combox.set(data['1title_font']['font_size']), font_title_ls_frm1_combox.set(data['1title_font']['font_ls']), font_ls_vlu1.set(data['1title_font']['font_ls_vlu']), font_ls_frm_lbl_b1.config(text=f"{data['1title_font']['font_ls_lbl_txt']}"), font_spacing_b_vlu1.set(
+            data['1title_font']['font_b_s_vlu']), font_spacing_a_vlu1.set(data['1title_font']['font_a_s_vlu']), font_indent_left_vlu1.set(data['1title_font']['font_l_idt_vlu']), font_indent_right_vlu1.set(data['1title_font']['font_r_idt_vlu']), font_first_line_vlu1.set(data['1title_font']['font_f_line_vlu']), font_bold_frm_vlu1.set(data['1title_font']['font_bold'])
+        font_title_name_frm2_combox.set(data['2title_font']['font_name']), font_title_size_frm2_combox.set(data['2title_font']['font_size']), font_title_ls_frm2_combox.set(data['2title_font']['font_ls']), font_ls_vlu2.set(data['2title_font']['font_ls_vlu']), font_ls_frm_lbl_b2.config(text=f"{data['2title_font']['font_ls_lbl_txt']}"), font_spacing_b_vlu2.set(
+            data['2title_font']['font_b_s_vlu']), font_spacing_a_vlu2.set(data['2title_font']['font_a_s_vlu']), font_indent_left_vlu2.set(data['2title_font']['font_l_idt_vlu']), font_indent_right_vlu2.set(data['2title_font']['font_r_idt_vlu']), font_first_line_vlu2.set(data['2title_font']['font_f_line_vlu']), font_bold_frm_vlu2.set(data['2title_font']['font_bold'])
+        font_title_name_frm3_combox.set(data['3title_font']['font_name']), font_title_size_frm3_combox.set(data['3title_font']['font_size']), font_title_ls_frm3_combox.set(data['3title_font']['font_ls']), font_ls_vlu3.set(data['3title_font']['font_ls_vlu']), font_ls_frm_lbl_b3.config(text=f"{data['3title_font']['font_ls_lbl_txt']}"), font_spacing_b_vlu3.set(
+            data['3title_font']['font_b_s_vlu']), font_spacing_a_vlu3.set(data['3title_font']['font_a_s_vlu']), font_indent_left_vlu3.set(data['3title_font']['font_l_idt_vlu']), font_indent_right_vlu3.set(data['3title_font']['font_r_idt_vlu']), font_first_line_vlu3.set(data['3title_font']['font_f_line_vlu']), font_bold_frm_vlu3.set(data['3title_font']['font_bold'])
+        font_title_name_frm4_combox.set(data['4title_font']['font_name']), font_title_size_frm4_combox.set(data['4title_font']['font_size']), font_title_ls_frm4_combox.set(data['4title_font']['font_ls']), font_ls_vlu4.set(data['4title_font']['font_ls_vlu']), font_ls_frm_lbl_b4.config(text=f"{data['4title_font']['font_ls_lbl_txt']}"), font_spacing_b_vlu4.set(
+            data['4title_font']['font_b_s_vlu']), font_spacing_a_vlu4.set(data['4title_font']['font_a_s_vlu']), font_indent_left_vlu4.set(data['4title_font']['font_l_idt_vlu']), font_indent_right_vlu4.set(data['4title_font']['font_r_idt_vlu']), font_first_line_vlu4.set(data['4title_font']['font_f_line_vlu']), font_bold_frm_vlu4.set(data['4title_font']['font_bold'])
+        font_mb_name_frm_combox.set(data['mb_font']['font_name']), font_mb_size_frm_combox.set(data['mb_font']['font_size']), font_mb_ls_frm_combox.set(data['mb_font']['font_ls']), font_mb_ls_vlu.set(data['mb_font']['font_ls_vlu']), font_mb_ls_frm_lbl_b.config(text=f"{data['mb_font']['font_ls_lbl_txt']}"), font_mb_spacing_b_vlu.set(
+            data['mb_font']['font_b_s_vlu']), font_mb_spacing_a_vlu.set(data['mb_font']['font_a_s_vlu']), font_mb_indent_left_vlu.set(data['mb_font']['font_l_idt_vlu']), font_mb_indent_right_vlu.set(data['mb_font']['font_r_idt_vlu']), font_mb_first_line_vlu.set(data['mb_font']['font_f_line_vlu']), font_mb_bold_frm_vlu.set(data['mb_font']['font_bold'])
+        font_num_name_frm_combox.set(data['num_font']['font_name']), font_num_size_frm_combox.set(data['num_font']['font_size']), font_num_bold_frm_vlu.set(data['num_font']['font_bold'])
         # 行距下拉框逻辑处理
-        if float(data['spacing']['l_value']) == 0:
-            font_title_ls_frm_combox.config(state="readonly"), font_title_ls_ent.config(state="normal")
-            font_title_ls_frm1_combox.config(state="readonly"), font_title_ls_ent1.config(state="normal")
-            font_title_ls_frm2_combox.config(state="readonly"), font_title_ls_ent2.config(state="normal")
-            font_title_ls_frm3_combox.config(state="readonly"), font_title_ls_ent3.config(state="normal")
-            font_mb_ls_frm_combox.config(state="readonly"), font_mb_ls_ent.config(state="normal")
-            font_num_ls_frm_combox.config(state="readonly"), font_num_ls_ent.config(state="normal")
+        if len(self.config.sections()) > 0:
+            if data['title_font']['font_ls_lbl_txt'] == "倍":
+                font_title_ls_ent.config(state="disabled")
+            else:
+                font_title_ls_ent.config(state="normal")
+            if data['1title_font']['font_ls_lbl_txt'] == "倍":
+                font_title_ls_ent1.config(state="disabled")
+            else:
+                font_title_ls_ent1.config(state="normal")
+            if data['2title_font']['font_ls_lbl_txt'] == "倍":
+                font_title_ls_ent2.config(state="disabled")
+            else:
+                font_title_ls_ent2.config(state="normal")
+            if data['3title_font']['font_ls_lbl_txt'] == "倍":
+                font_title_ls_ent3.config(state="disabled")
+            else:
+                font_title_ls_ent3.config(state="normal")
+            if data['4title_font']['font_ls_lbl_txt'] == "倍":
+                font_title_ls_ent4.config(state="disabled")
+            else:
+                font_title_ls_ent4.config(state="normal")
+            if data['mb_font']['font_ls_lbl_txt'] == "倍":
+                font_mb_ls_ent.config(state="disabled")
+            else:
+                font_mb_ls_ent.config(state="normal")
+            pgp_almt_frm_combox.set(data['main']['pgp_almt'])
+            single_crl_radio_value.set(data['main']['single_crl_value'])
+            time_radio_value.set(data['main']['time_ipt'])
+            page_radio_value.set(data['main']['page_ipt'])
+            img_radio_value.set(data['main']['img_ipt'])
+            pgp_margin_t_vlu.set(data['margin']['t_value']), pgp_margin_b_vlu.set(data['margin']['b_value']), pgp_margin_l_vlu.set(data['margin']['l_value']), pgp_margin_r_vlu.set(data['margin']['r_value'])
+            if self.is_auto_import:
+                writeHistory("配置自动导入成功！")
+            else:
+                writeHistory("配置导入成功！")
         else:
-            font_title_ls_frm_combox.config(state="disabled"), font_title_ls_ent.config(state="disabled")
-            font_title_ls_frm1_combox.config(state="disabled"), font_title_ls_ent1.config(state="disabled")
-            font_title_ls_frm2_combox.config(state="disabled"), font_title_ls_ent2.config(state="disabled")
-            font_title_ls_frm3_combox.config(state="disabled"), font_title_ls_ent3.config(state="disabled")
-            font_mb_ls_frm_combox.config(state="disabled"), font_mb_ls_ent.config(state="disabled")
-            font_num_ls_frm_combox.config(state="disabled"), font_num_ls_ent.config(state="disabled")
-        if data['title_font']['font_ls_lbl_txt'] == "倍":
-            font_title_ls_ent.config(state="disabled")
-        if data['1title_font']['font_ls_lbl_txt'] == "倍":
-            font_title_ls_ent1.config(state="disabled")
-        if data['2title_font']['font_ls_lbl_txt'] == "倍":
-            font_title_ls_ent2.config(state="disabled")
-        if data['3title_font']['font_ls_lbl_txt'] == "倍":
-            font_title_ls_ent3.config(state="disabled")
-        if data['mb_font']['font_ls_lbl_txt'] == "倍":
-            font_mb_ls_ent.config(state="disabled")
-        if data['num_font']['font_ls_lbl_txt'] == "倍":
-            font_num_ls_ent.config(state="disabled")
-        pgp_almt_frm_combox.set(data['main']['pgp_almt'])
-        single_crl_radio_value.set(data['main']['single_crl_value'])
-        time_radio_value.set(data['main']['time_ipt'])
-        page_radio_value.set(data['main']['page_ipt'])
-        img_radio_value.set(data['main']['img_ipt'])
-        pgp_margin_t_vlu.set(data['margin']['t_value']), pgp_margin_b_vlu.set(data['margin']['b_value']), pgp_margin_l_vlu.set(data['margin']['l_value']), pgp_margin_r_vlu.set(data['margin']['r_value'])
-        if self.is_auto_import:
-            writeHistory("配置自动导入成功！")
-        else:
-            writeHistory("配置导入成功！")
+            writeHistory("配置文件内容为空！")
+            messagebox.showinfo("提示", "配置文件内容为空！")
 
 
 class eventBottom():
@@ -1001,82 +1057,97 @@ class CreateFrame():
     def __init__(self, frm, title_txt, row, col, last_txt):
         self.frm = frm
         self.title_txt = title_txt
-        self.row = row
+        self.row = row + 1
         self.col = col
         self.last_txt = last_txt
 
     def cFontFrame(self):
         """字体标题"""
+
+        def cIndentSpacingFrame(self, col):
+            """左侧缩进、右侧缩进、段前、段后布局通用"""
+            spacing_frm = ttk.Frame(self.frm)
+            spacing_frm.grid(row=self.row, column=col, sticky="n")
+            spacing_vlu = StringVar()  # 创建一个StringVar变量来存储数值
+            spacing_vlu.set("0")  # 初始值设置为0
+            spacing_spinbox = ttk.Spinbox(spacing_frm, from_=0, to=100, increment=0.1, textvariable=spacing_vlu, width=5, font=("Ya Hei", 10), wrap=True)
+            spacing_spinbox.grid(row=self.row, column=1, padx=(10, 2), pady=5)
+            ttk.Label(spacing_frm, text=self.last_txt, font=("Ya Hei", 10)).grid(row=self.row, column=2, padx=(2, 10), pady=5)  # 磅文本
+            return spacing_vlu
         font_label = ttk.Label(self.frm, font=("Ya Hei", 10, "bold"), text=self.title_txt)
         font_label.grid(row=self.row, column=0, padx=2, pady=5, sticky="e")
-        font_name_frm = ttk.Frame(self.frm)  # 字体选择下拉框
+        # 字体选择下拉框
+        font_name_frm = ttk.Frame(self.frm)
         font_name_frm.grid(row=self.row, column=1, sticky="n")
-        font_name_frm_lbl = ttk.Label(font_name_frm, text="字体：", font=("Ya Hei", 10, "bold"))  # 字体文本
-        font_name_frm_lbl.grid(row=self.row, column=0, padx=2, pady=5)
         font_name_frm_combox = ttk.Combobox(font_name_frm, width=22, font=("Ya Hei", 10), name=self.title_txt, state="readonly")  # 字体下拉框盒子
-        font_name_frm_combox.grid(row=self.row, column=1, padx=2, pady=5)
+        font_name_frm_combox.grid(row=self.row, column=1, padx=10, pady=5)
         font_name_frm_combox['values'] = sorted(FONTS)
         font_name_frm_combox.current(sorted(FONTS).index("宋体"))
-        font_size_frm = ttk.Frame(self.frm)  # 字号选择下拉框
+        # 字号选择下拉框
+        font_size_frm = ttk.Frame(self.frm)
         font_size_frm.grid(row=self.row, column=2, sticky="n")
-        font_size_frm_lbl = ttk.Label(font_size_frm, text="字号：", font=("Ya Hei", 10, "bold"))  # 字号文本
-        font_size_frm_lbl.grid(row=self.row, column=0, padx=2, pady=5)
         font_size_frm_combox = ttk.Combobox(font_size_frm, width=4, font=("Ya Hei", 10))  # 字号下拉框盒子
-        font_size_frm_combox.grid(row=self.row, column=1, padx=2, pady=5)
+        font_size_frm_combox.grid(row=self.row, column=1, padx=10, pady=5)
         font_size_frm_combox['values'] = ("初号", "小初", "一号", "小一", "二号", "小二", "三号", "小三", "四号", "小四", "五号", "小五", "六号", "小六", "七号", "八号")
         font_size_frm_combox.current(0)
-        font_ls_frm = ttk.Frame(self.frm)  # 行距选择下拉框
-        font_ls_frm.grid(row=self.row, column=3, sticky="n")
-        font_ls_frm_lbl = ttk.Label(font_ls_frm, text="行距：", font=("Ya Hei", 10, "bold"))  # 行距文本
-        font_ls_frm_lbl.grid(row=self.row, column=0, padx=2, pady=5)
-        font_ls_frm_vlu = StringVar()  # 创建一个StringVar变量来存储数值
-        font_ls_frm_combox = ttk.Combobox(font_ls_frm, width=6, font=("Ya Hei", 10), textvariable=font_ls_frm_vlu, state="readonly")  # 行距下拉框盒子
-        font_ls_frm_combox.grid(row=self.row, column=1, padx=2, pady=5)
-        font_ls_frm_combox['values'] = ("单倍", "1.5倍", "2倍", "最小值", "固定值", "多倍")
-        font_ls_frm_combox.current(0)
-        font_ls_vlu = StringVar()  # 创建一个StringVar变量来存储数值
-        font_ls_vlu.set("1")  # 初始值设置为0
-        font_ls_ent = ttk.Entry(font_ls_frm, width=4, font=("Ya Hei", 10), textvariable=font_ls_vlu, state="disabled")  # 输入框
-        font_ls_ent.grid(row=self.row, column=2, padx=2, pady=5)
-        font_ls_frm_lbl_b = ttk.Label(font_ls_frm, text="倍", font=("Ya Hei", 10, "bold"))  # 磅文本
-        font_ls_frm_lbl_b.grid(row=self.row, column=3, padx=2, pady=5)
-        return font_name_frm_combox, font_size_frm_combox, font_ls_frm_combox, font_ls_ent, font_ls_frm_lbl_b, font_ls_frm_vlu, font_ls_vlu
+        # 加粗，用复选框
+        font_bold_frm = ttk.Frame(self.frm)
+        font_bold_frm.grid(row=self.row, column=3, sticky="n")
+        font_bold_frm_vlu = IntVar()  # 创建一个BooleanVar变量来存储数值
+        font_bold_frm_vlu.set(0)  # 初始值设置为0
+        font_bold_frm_check = ttk.Checkbutton(font_bold_frm, text="加粗", variable=font_bold_frm_vlu)  # 加粗复选框
+        font_bold_frm_check.grid(row=self.row, column=1, padx=10, pady=5)
 
-    def cIndentSpacingFrame(self):
-        """缩进"""
-        pgp_indent_frm_lbl = ttk.Label(self.frm, text=self.title_txt, font=("Ya Hei", 10, "bold"))  # 左侧缩进文本
-        pgp_indent_frm_lbl.grid(row=self.row, column=0, padx=2, pady=5, sticky="e")
-        pgp_indent_vlu = StringVar()  # 创建一个StringVar变量来存储数值
-        pgp_indent_vlu.set("0")  # 初始值设置为0
-        spinbox_name = self.title_txt[:-1].split(" ")[-1]
-        pgp_indent_spinbox = ttk.Spinbox(self.frm, name=spinbox_name, from_=0, to=100, increment=0.1, textvariable=pgp_indent_vlu, width=5, font=("Ya Hei", 10), wrap=True)
-        pgp_indent_spinbox.grid(row=self.row, column=1, padx=2, pady=5)
-        pgp_indent_lbl_b = ttk.Label(self.frm, text=self.last_txt, font=("Ya Hei", 10, "bold"))  # 磅文本
-        pgp_indent_lbl_b.grid(row=self.row, column=2, padx=2, pady=5)
-        return pgp_indent_spinbox, pgp_indent_vlu
+        if self.title_txt != "数字英文":
+            # 左侧缩进
+            indent_left_vlu = cIndentSpacingFrame(self, 4)
+            # 右侧缩进
+            indent_right_vlu = cIndentSpacingFrame(self, 5)
+            # 首行缩进
+            first_line_vlu = cIndentSpacingFrame(self, 6)
+            # 段前
+            spacing_b_vlu = cIndentSpacingFrame(self, 7)
+            # 段后
+            spacing_a_vlu = cIndentSpacingFrame(self, 8)
+            # 行距选择下拉框
+            font_ls_frm = ttk.Frame(self.frm)
+            font_ls_frm.grid(row=self.row, column=9, sticky="n")
+            font_ls_frm_vlu = StringVar()  # 创建一个StringVar变量来存储数值
+            font_ls_frm_combox = ttk.Combobox(font_ls_frm, width=6, font=("Ya Hei", 10), textvariable=font_ls_frm_vlu, state="readonly")  # 行距下拉框盒子
+            font_ls_frm_combox.grid(row=self.row, column=1, padx=(10, 2), pady=5)
+            font_ls_frm_combox['values'] = ("单倍", "1.5倍", "2倍", "最小值", "固定值", "多倍")
+            font_ls_frm_combox.current(0)
+            font_ls_vlu = StringVar()  # 创建一个StringVar变量来存储数值
+            font_ls_vlu.set("1")  # 初始值设置为0
+            font_ls_ent = ttk.Entry(font_ls_frm, width=4, font=("Ya Hei", 10), textvariable=font_ls_vlu, state="disabled")  # 输入框
+            font_ls_ent.grid(row=self.row, column=2, padx=2, pady=5)
+            font_ls_frm_lbl_b = ttk.Label(font_ls_frm, text="倍", font=("Ya Hei", 10))  # 磅文本
+            font_ls_frm_lbl_b.grid(row=self.row, column=3, padx=(2, 10), pady=5)
+            return font_name_frm_combox, font_size_frm_combox, font_ls_frm_combox, font_ls_ent, font_ls_frm_lbl_b, font_ls_frm_vlu, font_ls_vlu, spacing_b_vlu, spacing_a_vlu, indent_left_vlu, indent_right_vlu, first_line_vlu, font_bold_frm_vlu
+        return font_name_frm_combox, font_size_frm_combox, "", "", "", "", "", "", "", "", "", "", font_bold_frm_vlu
 
     def cRadioFrame(self):
         """是否"""
         crl_label = ttk.Label(self.frm, font=("Ya Hei", 10, "bold"), text=self.title_txt)
-        crl_label.grid(row=self.row, column=0, padx=5, pady=5, sticky="e")
+        crl_label.grid(row=self.row, column=0, padx=0, pady=0, sticky="e")
         crl_radio_value = StringVar()
         crl_radio1 = ttk.Radiobutton(self.frm, text="是", variable=crl_radio_value, value="1")
-        crl_radio1.grid(row=self.row, column=1, padx=5, pady=5)
+        crl_radio1.grid(row=self.row, column=1, padx=2, pady=0)
         crl_radio2 = ttk.Radiobutton(self.frm, text="否", variable=crl_radio_value, value="0")
-        crl_radio2.grid(row=self.row, column=2, padx=5, pady=5)
+        crl_radio2.grid(row=self.row, column=2, padx=5, pady=0)
         return crl_radio_value, crl_radio1, crl_radio2
 
     def cMarginFrame(self):
         """页边距"""
         if self.col > 0:
             self.col = self.col + self.col * 2
-        pgp_margin_frm_lbl = ttk.Label(self.frm, text=self.title_txt, font=("Ya Hei", 10, "bold"))  # 左侧缩进文本
-        pgp_margin_frm_lbl.grid(row=self.row, column=self.col, padx=2, pady=2, sticky="e")
+        pgp_margin_frm_lbl = ttk.Label(self.frm, text=self.title_txt, font=("Ya Hei", 10, "bold"))  # 文本
+        pgp_margin_frm_lbl.grid(row=self.row, column=self.col, padx=(5, 2), pady=9, sticky="e")
         pgp_margin_vlu = StringVar()  # 创建一个IntVar变量来存储数值
         pgp_margin_spinbox = ttk.Spinbox(self.frm, from_=0, to=100, increment=0.01, textvariable=pgp_margin_vlu, width=5, font=("Ya Hei", 10), wrap=True)
-        pgp_margin_spinbox.grid(row=0, column=self.col + 1, padx=2, pady=2)
-        pgp_margin_lbl_b = ttk.Label(self.frm, text="cm", font=("Ya Hei", 10, "bold"))  # 磅文本
-        pgp_margin_lbl_b.grid(row=0, column=self.col + 2, padx=(2, 20), pady=2)
+        pgp_margin_spinbox.grid(row=self.row, column=self.col + 1, padx=2, pady=9)
+        pgp_margin_lbl_b = ttk.Label(self.frm, text="cm", font=("Ya Hei", 10))  # 磅文本
+        pgp_margin_lbl_b.grid(row=self.row, column=self.col + 2, padx=(2, 5), pady=9)
         return pgp_margin_spinbox, pgp_margin_vlu
 
 
@@ -1125,47 +1196,24 @@ class LogicalEvents():
             ls_ent.config(state='disabled')
             ls_frm_lbl_b.config(text="磅")
 
-    def checkSpinboxValue(dict_):
+    def checkSpinboxValue(data):
         """检查spinbox的值是否合法"""
         t_f = []
-        for key, value in dict_.items():
-            try:
-                float(value)
-                t_f.append(True)
-            except:
-                t_f.append(False)
-                writeHistory(f"控件名称：{key}，错误值：{value}，请重新输入有效数字！")
-                # messagebox.showerror("错误", f"控件名称：{key}，错误值：{value}，请重新输入有效数字！")
+        dict_list = [data["title_font"], data["1title_font"], data["2title_font"], data["3title_font"], data["4title_font"], data["mb_font"], data["num_font"]]
+        key_name = ["font_ls_vlu", "font_b_s_vlu", "font_a_s_vlu", "font_l_idt_vlu", "font_r_idt_vlu", "font_f_line_vlu"]
+        for dict_ in dict_list:
+            idx = 0
+            for key, value in dict_.items():
+                if key != "font_name" and key != "font_size" and key != "font_ls" and key != "font_ls_lbl_txt" and key != "font_bold":
+                    try:
+                        float(value)
+                        t_f.append(True)
+                    except:
+                        t_f.append(False)
+                        writeHistory(f"控件名称：{dict_list.index(dict_)}-{key_name[idx]}，错误值：{value}，请重新输入有效数字！")
+                        # messagebox.showerror("错误", f"控件名称：{key}，错误值：{value}，请重新输入有效数字！")
+                    idx += 1
         return t_f
-
-    def spacingLSpb(spacing_l_ent):
-        """全文行距统一事件"""
-        def spacingLSpbEvent(ls_frm_combox, ls_ent):
-            combox = ls_frm_combox.get()
-            if combox == "固定值" or combox == "最小值" or combox == "多倍":
-                ls_ent.config(state="normal")
-            else:
-                ls_ent.config(state="disabled")
-
-        global data
-        l_ent_vlu = float(spacing_l_ent.get())
-        if l_ent_vlu > 0:
-            font_title_ls_frm_combox.config(state="disabled"), font_title_ls_ent.config(state="disabled")
-            font_title_ls_frm1_combox.config(state="disabled"), font_title_ls_ent1.config(state="disabled")
-            font_title_ls_frm2_combox.config(state="disabled"), font_title_ls_ent2.config(state="disabled")
-            font_title_ls_frm3_combox.config(state="disabled"), font_title_ls_ent3.config(state="disabled")
-            font_mb_ls_frm_combox.config(state="disabled"), font_mb_ls_ent.config(state="disabled")
-            font_num_ls_frm_combox.config(state="disabled"), font_num_ls_ent.config(state="disabled")
-            data["title_font"]["font_ls_vlu"] = data["1title_font"]["font_ls_vlu"] = data["2title_font"]["font_ls_vlu"] = data["3title_font"]["font_ls_vlu"] = data["mb_font"]["font_ls_vlu"] = data["num_font"]["font_ls_vlu"] = l_ent_vlu
-            data["title_font"]["font_ls_lbl_txt"] = data["1title_font"]["font_ls_lbl_txt"] = data["2title_font"]["font_ls_lbl_txt"] = data["3title_font"]["font_ls_lbl_txt"] = data["mb_font"]["font_ls_lbl_txt"] = data["num_font"]["font_ls_lbl_txt"] = "磅"
-        else:
-            font_title_ls_frm_combox.config(state="readonly"), spacingLSpbEvent(font_title_ls_frm_combox, font_title_ls_ent)
-            font_title_ls_frm1_combox.config(state="readonly"), spacingLSpbEvent(font_title_ls_frm1_combox, font_title_ls_ent1)
-            font_title_ls_frm2_combox.config(state="readonly"), spacingLSpbEvent(font_title_ls_frm2_combox, font_title_ls_ent2)
-            font_title_ls_frm3_combox.config(state="readonly"), spacingLSpbEvent(font_title_ls_frm3_combox, font_title_ls_ent3)
-            font_mb_ls_frm_combox.config(state="readonly"), spacingLSpbEvent(font_mb_ls_frm_combox, font_mb_ls_ent)
-            font_num_ls_frm_combox.config(state="readonly"), spacingLSpbEvent(font_num_ls_frm_combox, font_num_ls_ent)
-            data = SystemEvents.getUserInput()
 
     def importIni(auto_import_ini_vlu):
         """导入ini文件"""
@@ -1215,14 +1263,26 @@ class SystemEvents():
         output_path = input_path + "\output"
         # 获取数值
         ini_impt_ipt = auto_import_ini_vlu.get() or "0"
-        font_title_name, font_title_size, font_title_ls, font_ls_value, font_ls_lbl_txt = SystemEvents.getSysFonts(font_title_name_frm_combox), font_title_size_frm_combox.get(), font_title_ls_frm_combox.get(), font_ls_vlu.get(), font_ls_frm_lbl_b.cget("text")
-        font_title_name1, font_title_size1, font_title_ls1, font_ls_value1, font_ls_lbl_txt1 = SystemEvents.getSysFonts(font_title_name_frm1_combox), font_title_size_frm1_combox.get(), font_title_ls_frm1_combox.get(), font_ls_vlu1.get(), font_ls_frm_lbl_b1.cget("text")
-        font_title_name2, font_title_size2, font_title_ls2, font_ls_value2, font_ls_lbl_txt2 = SystemEvents.getSysFonts(font_title_name_frm2_combox), font_title_size_frm2_combox.get(), font_title_ls_frm2_combox.get(), font_ls_vlu2.get(), font_ls_frm_lbl_b2.cget("text")
-        font_title_name3, font_title_size3, font_title_ls3, font_ls_value3, font_ls_lbl_txt3 = SystemEvents.getSysFonts(font_title_name_frm3_combox), font_title_size_frm3_combox.get(), font_title_ls_frm3_combox.get(), font_ls_vlu3.get(), font_ls_frm_lbl_b3.cget("text")
-        font_mb_name, font_mb_size, font_mb_ls, font_mb_ls_value, font_mb_ls_txt = SystemEvents.getSysFonts(font_mb_name_frm_combox), font_mb_size_frm_combox.get(), font_mb_ls_frm_combox.get(), font_mb_ls_vlu.get(), font_mb_ls_frm_lbl_b.cget("text")
-        font_num_name, font_num_size, font_num_ls, font_num_ls_value, font_num_ls_txt = SystemEvents.getSysFonts(font_num_name_frm_combox), font_num_size_frm_combox.get(), font_num_ls_frm_combox.get(), font_num_ls_vlu.get(), font_num_ls_frm_lbl_b.cget("text")
-        pgp_indent_l_value, pgp_indent_r_value, pgp_indent_f_value = pgp_indent_l_vlu.get(), pgp_indent_r_vlu.get(), pgp_indent_f_vlu.get()
-        spacing_b_vlu, spacing_a_vlu, spacing_l_vlu = spacing_b_ent.get(), spacing_a_ent.get(), spacing_l_ent.get()
+        font_title_name, font_title_size, font_title_ls, font_ls_value, font_ls_lbl_txt, font_space_b_value, font_space_a_value, font_l_idt_value, font_r_idt_value, font_f_line_value, font_bold_vlu = SystemEvents.getSysFonts(font_title_name_frm_combox), font_title_size_frm_combox.get(
+        ), font_title_ls_frm_combox.get(), font_ls_vlu.get(), font_ls_frm_lbl_b.cget("text"), font_spacing_b_vlu.get(), font_spacing_a_vlu.get(), font_indent_left_vlu.get(), font_indent_right_vlu.get(), font_first_line_vlu.get(), font_bold_frm_vlu.get()
+
+        font_title_name1, font_title_size1, font_title_ls1, font_ls_value1, font_ls_lbl_txt1, font_space_b_value1, font_space_a_value1, font_l_idt_value1, font_r_idt_value1, font_f_line_value1, font_bold_vlu1 = SystemEvents.getSysFonts(font_title_name_frm1_combox), font_title_size_frm1_combox.get(
+        ), font_title_ls_frm1_combox.get(), font_ls_vlu1.get(), font_ls_frm_lbl_b1.cget("text"), font_spacing_b_vlu1.get(), font_spacing_a_vlu1.get(), font_indent_left_vlu1.get(), font_indent_right_vlu1.get(), font_first_line_vlu1.get(), font_bold_frm_vlu1.get()
+
+        font_title_name2, font_title_size2, font_title_ls2, font_ls_value2, font_ls_lbl_txt2, font_space_b_value2, font_space_a_value2, font_l_idt_value2, font_r_idt_value2, font_f_line_value2, font_bold_vlu2 = SystemEvents.getSysFonts(font_title_name_frm2_combox), font_title_size_frm2_combox.get(
+        ), font_title_ls_frm2_combox.get(), font_ls_vlu2.get(), font_ls_frm_lbl_b2.cget("text"), font_spacing_b_vlu2.get(), font_spacing_a_vlu2.get(), font_indent_left_vlu2.get(), font_indent_right_vlu2.get(), font_first_line_vlu2.get(), font_bold_frm_vlu2.get()
+
+        font_title_name3, font_title_size3, font_title_ls3, font_ls_value3, font_ls_lbl_txt3, font_space_b_value3, font_space_a_value3, font_l_idt_value3, font_r_idt_value3, font_f_line_value3, font_bold_vlu3 = SystemEvents.getSysFonts(font_title_name_frm3_combox), font_title_size_frm3_combox.get(
+        ), font_title_ls_frm3_combox.get(), font_ls_vlu3.get(), font_ls_frm_lbl_b3.cget("text"), font_spacing_b_vlu3.get(), font_spacing_a_vlu3.get(), font_indent_left_vlu3.get(), font_indent_right_vlu3.get(), font_first_line_vlu3.get(), font_bold_frm_vlu3.get()
+
+        font_title_name4, font_title_size4, font_title_ls4, font_ls_value4, font_ls_lbl_txt4, font_space_b_value4, font_space_a_value4, font_l_idt_value4, font_r_idt_value4, font_f_line_value4, font_bold_vlu4 = SystemEvents.getSysFonts(font_title_name_frm4_combox), font_title_size_frm4_combox.get(
+        ), font_title_ls_frm4_combox.get(), font_ls_vlu4.get(), font_ls_frm_lbl_b4.cget("text"), font_spacing_b_vlu4.get(), font_spacing_a_vlu4.get(), font_indent_left_vlu4.get(), font_indent_right_vlu4.get(), font_first_line_vlu4.get(), font_bold_frm_vlu4.get()
+
+        font_mb_name, font_mb_size, font_mb_ls, font_mb_ls_value, font_mb_ls_txt, font_mb_space_b_value, font_mb_space_a_value, font_mb_l_idt_value, font_mb_r_idt_value, font_mb_f_line_value, font_mb_bold_vlu = SystemEvents.getSysFonts(font_mb_name_frm_combox), font_mb_size_frm_combox.get(
+        ), font_mb_ls_frm_combox.get(), font_mb_ls_vlu.get(), font_mb_ls_frm_lbl_b.cget("text"), font_mb_spacing_b_vlu.get(), font_mb_spacing_a_vlu.get(), font_mb_indent_left_vlu.get(), font_mb_indent_right_vlu.get(), font_mb_first_line_vlu.get(), font_mb_bold_frm_vlu.get()
+
+        font_num_name, font_num_size, font_num_bold_vlu = SystemEvents.getSysFonts(font_num_name_frm_combox), font_num_size_frm_combox.get(), font_num_bold_frm_vlu.get()
+
         pgp_almt = pgp_almt_frm_combox.get()
         single_crl_value = single_crl_radio_value.get()
         pgp_margin_t_value, pgp_margin_b_value, pgp_margin_l_value, pgp_margin_r_value = pgp_margin_t_vlu.get(), pgp_margin_b_vlu.get(), pgp_margin_l_vlu.get(), pgp_margin_r_vlu.get()
@@ -1233,54 +1293,93 @@ class SystemEvents():
             "title_font": {
                 "font_name": font_title_name,
                 "font_size": font_title_size,
+                "font_bold": font_bold_vlu,
                 "font_ls": font_title_ls,
                 "font_ls_vlu": font_ls_value,
-                "font_ls_lbl_txt": font_ls_lbl_txt
+                "font_ls_lbl_txt": font_ls_lbl_txt,
+                "font_b_s_vlu": font_space_b_value,
+                "font_a_s_vlu": font_space_a_value,
+                "font_l_idt_vlu": font_l_idt_value,
+                "font_r_idt_vlu": font_r_idt_value,
+                "font_f_line_vlu": font_f_line_value
             },
             "1title_font": {
                 "font_name": font_title_name1,
                 "font_size": font_title_size1,
+                "font_bold": font_bold_vlu1,
                 "font_ls": font_title_ls1,
                 "font_ls_vlu": font_ls_value1,
-                "font_ls_lbl_txt": font_ls_lbl_txt1
+                "font_ls_lbl_txt": font_ls_lbl_txt1,
+                "font_b_s_vlu": font_space_b_value1,
+                "font_a_s_vlu": font_space_a_value1,
+                "font_l_idt_vlu": font_l_idt_value1,
+                "font_r_idt_vlu": font_r_idt_value1,
+                "font_f_line_vlu": font_f_line_value1
             },
             "2title_font": {
                 "font_name": font_title_name2,
                 "font_size": font_title_size2,
+                "font_bold": font_bold_vlu2,
                 "font_ls": font_title_ls2,
                 "font_ls_vlu": font_ls_value2,
-                "font_ls_lbl_txt": font_ls_lbl_txt2
+                "font_ls_lbl_txt": font_ls_lbl_txt2,
+                "font_b_s_vlu": font_space_b_value2,
+                "font_a_s_vlu": font_space_a_value2,
+                "font_l_idt_vlu": font_l_idt_value2,
+                "font_r_idt_vlu": font_r_idt_value2,
+                "font_f_line_vlu": font_f_line_value2
             },
             "3title_font": {
                 "font_name": font_title_name3,
                 "font_size": font_title_size3,
+                "font_bold": font_bold_vlu3,
                 "font_ls": font_title_ls3,
                 "font_ls_vlu": font_ls_value3,
-                "font_ls_lbl_txt": font_ls_lbl_txt3
+                "font_ls_lbl_txt": font_ls_lbl_txt3,
+                "font_b_s_vlu": font_space_b_value3,
+                "font_a_s_vlu": font_space_a_value3,
+                "font_l_idt_vlu": font_l_idt_value3,
+                "font_r_idt_vlu": font_r_idt_value3,
+                "font_f_line_vlu": font_f_line_value3
+            },
+            "4title_font": {
+                "font_name": font_title_name4,
+                "font_size": font_title_size4,
+                "font_bold": font_bold_vlu4,
+                "font_ls": font_title_ls4,
+                "font_ls_vlu": font_ls_value4,
+                "font_ls_lbl_txt": font_ls_lbl_txt4,
+                "font_b_s_vlu": font_space_b_value4,
+                "font_a_s_vlu": font_space_a_value4,
+                "font_l_idt_vlu": font_l_idt_value4,
+                "font_r_idt_vlu": font_r_idt_value4,
+                "font_f_line_vlu": font_f_line_value4
             },
             "mb_font": {
                 "font_name": font_mb_name,
                 "font_size": font_mb_size,
+                "font_bold": font_mb_bold_vlu,
                 "font_ls": font_mb_ls,
                 "font_ls_vlu": font_mb_ls_value,
-                "font_ls_lbl_txt": font_mb_ls_txt
+                "font_ls_lbl_txt": font_mb_ls_txt,
+                "font_b_s_vlu": font_mb_space_b_value,
+                "font_a_s_vlu": font_mb_space_a_value,
+                "font_l_idt_vlu": font_mb_l_idt_value,
+                "font_r_idt_vlu": font_mb_r_idt_value,
+                "font_f_line_vlu": font_mb_f_line_value
             },
             "num_font": {
                 "font_name": font_num_name,
                 "font_size": font_num_size,
-                "font_ls": font_num_ls,
-                "font_ls_vlu": font_num_ls_value,
-                "font_ls_lbl_txt": font_num_ls_txt
-            },
-            "indent": {
-                "l_value": pgp_indent_l_value,
-                "r_value": pgp_indent_r_value,
-                "f_value": pgp_indent_f_value,
-            },
-            "spacing": {
-                "b_value": spacing_b_vlu,
-                "a_value": spacing_a_vlu,
-                "l_value": spacing_l_vlu,
+                "font_bold": font_num_bold_vlu,
+                "font_ls": font_mb_ls,
+                "font_ls_vlu": font_mb_ls_value,
+                "font_ls_lbl_txt": font_mb_ls_txt,
+                "font_b_s_vlu": font_mb_space_b_value,
+                "font_a_s_vlu": font_mb_space_a_value,
+                "font_l_idt_vlu": font_mb_l_idt_value,
+                "font_r_idt_vlu": font_mb_r_idt_value,
+                "font_f_line_vlu": font_mb_f_line_value
             },
             "margin": {
                 "t_value": pgp_margin_t_value,
@@ -1298,15 +1397,6 @@ class SystemEvents():
                 "output_path": output_path,
                 "auto_import": ini_impt_ipt}
         }
-        # 判断是否需要统一行距
-        try:
-            l_ent_vlu = float(spacing_l_ent.get())
-            if l_ent_vlu > 0:
-                data["title_font"]["font_ls_vlu"] = data["1title_font"]["font_ls_vlu"] = data["2title_font"]["font_ls_vlu"] = data["3title_font"]["font_ls_vlu"] = data["mb_font"]["font_ls_vlu"] = data["num_font"]["font_ls_vlu"] = str(l_ent_vlu)
-                data["title_font"]["font_ls_lbl_txt"] = data["1title_font"]["font_ls_lbl_txt"] = data["2title_font"]["font_ls_lbl_txt"] = data["3title_font"]["font_ls_lbl_txt"] = data["mb_font"]["font_ls_lbl_txt"] = data["num_font"]["font_ls_lbl_txt"] = "磅"
-        except:
-            data["title_font"]["font_ls_vlu"] = data["1title_font"]["font_ls_vlu"] = data["2title_font"]["font_ls_vlu"] = data["3title_font"]["font_ls_vlu"] = data["mb_font"]["font_ls_vlu"] = data["num_font"]["font_ls_vlu"] = data["spacing"]["l_value"] = "0.0"
-            # messagebox.showerror("错误", "行距输入错误！请输入有效数字！")
         # print(data)
         return data
 
@@ -1406,7 +1496,6 @@ def aboutTk():
     cv_cxm = Canvas(cxm_frm, width=cxm_image_new.width(), height=cxm_image_new.height(), highlightthickness=0)
     cv_cxm.create_image(0, 0, image=cxm_image_new, anchor="nw")
     cv_cxm.grid(row=0, column=0, pady=(20, 10))
-
     bottom_info_frm = ttk.Frame(bottom_frm)
     bottom_info_frm.pack()
     bottom_label_a = ttk.Label(bottom_info_frm, text="作者：晨小明")
@@ -1429,8 +1518,8 @@ def aboutTk():
 
 def writeHistory(text=""):
     """写入历史记录"""
-    time_stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-    output_txt = time_stamp + "    " + text
+    time_stamp = datetime.now().strftime("%m-%d %H:%M:%S.%f")[:-3]
+    output_txt = time_stamp + "  " + text
     play_history_frm_listbox.insert(END, output_txt)
     play_history_frm_listbox.update()
     print(f"··>提示<·· {output_txt}")
@@ -1458,21 +1547,31 @@ def done():
 def reSet():
     """重置"""
     global data
-    font_title_name_frm_combox.current(sorted(FONTS).index("宋体")), font_title_size_frm_combox.current(0), font_title_ls_frm_combox.current(0), font_ls_vlu.set("1"), font_ls_frm_lbl_b.config(text="倍"), font_title_ls_ent.config(state="disabled")
-    font_title_name_frm1_combox.current(sorted(FONTS).index("宋体")), font_title_size_frm1_combox.current(0), font_title_ls_frm1_combox.current(0), font_ls_vlu1.set("1"), font_ls_frm_lbl_b1.config(text="倍"), font_title_ls_ent1.config(state="disabled")
-    font_title_name_frm2_combox.current(sorted(FONTS).index("宋体")), font_title_size_frm2_combox.current(0), font_title_ls_frm2_combox.current(0), font_ls_vlu2.set("1"), font_ls_frm_lbl_b2.config(text="倍"), font_title_ls_ent2.config(state="disabled")
-    font_title_name_frm3_combox.current(sorted(FONTS).index("宋体")), font_title_size_frm3_combox.current(0), font_title_ls_frm3_combox.current(0), font_ls_vlu3.set("1"), font_ls_frm_lbl_b3.config(text="倍"), font_title_ls_ent3.config(state="disabled")
-    font_mb_name_frm_combox.current(sorted(FONTS).index("宋体")), font_mb_size_frm_combox.current(0), font_mb_ls_frm_combox.current(0), font_mb_ls_vlu.set("1"), font_mb_ls_frm_lbl_b.config(text="倍"), font_mb_ls_ent.config(state="disabled")
-    font_num_name_frm_combox.current(sorted(FONTS).index("宋体")), font_num_size_frm_combox.current(0), font_num_ls_frm_combox.current(0), font_num_ls_vlu.set("1"), font_num_ls_frm_lbl_b.config(text="倍"), font_num_ls_ent.config(state="disabled")
+    font_title_name_frm_combox.current(sorted(FONTS).index("宋体")), font_title_size_frm_combox.current(0), font_title_ls_frm_combox.current(0), font_ls_vlu.set("1"), font_ls_frm_lbl_b.config(text="倍"), font_title_ls_ent.config(
+        state="disabled"), font_spacing_b_vlu.set(0), font_spacing_a_vlu.set(0), font_indent_left_vlu.set(0), font_indent_right_vlu.set(0), font_first_line_vlu.set(0), font_bold_frm_vlu.set(0)
+
+    font_title_name_frm1_combox.current(sorted(FONTS).index("宋体")), font_title_size_frm1_combox.current(0), font_title_ls_frm1_combox.current(0), font_ls_vlu1.set("1"), font_ls_frm_lbl_b1.config(
+        text="倍"), font_title_ls_ent1.config(state="disabled"), font_spacing_b_vlu1.set(0), font_spacing_a_vlu1.set(0), font_indent_left_vlu1.set(0), font_indent_right_vlu1.set(0), font_first_line_vlu1.set(0), font_bold_frm_vlu1.set(0)
+
+    font_title_name_frm2_combox.current(sorted(FONTS).index("宋体")), font_title_size_frm2_combox.current(0), font_title_ls_frm2_combox.current(0), font_ls_vlu2.set("1"), font_ls_frm_lbl_b2.config(
+        text="倍"), font_title_ls_ent2.config(state="disabled"), font_spacing_b_vlu2.set(0), font_spacing_a_vlu2.set(0), font_indent_left_vlu2.set(0), font_indent_right_vlu2.set(0), font_first_line_vlu2.set(0), font_bold_frm_vlu2.set(0)
+
+    font_title_name_frm3_combox.current(sorted(FONTS).index("宋体")), font_title_size_frm3_combox.current(0), font_title_ls_frm3_combox.current(0), font_ls_vlu3.set("1"), font_ls_frm_lbl_b3.config(
+        text="倍"), font_title_ls_ent3.config(state="disabled"), font_spacing_b_vlu3.set(0), font_spacing_a_vlu3.set(0), font_indent_left_vlu3.set(0), font_indent_right_vlu3.set(0), font_first_line_vlu3.set(0), font_bold_frm_vlu3.set(0)
+
+    font_title_name_frm4_combox.current(sorted(FONTS).index("宋体")), font_title_size_frm4_combox.current(0), font_title_ls_frm4_combox.current(0), font_ls_vlu4.set("1"), font_ls_frm_lbl_b4.config(
+        text="倍"), font_title_ls_ent4.config(state="disabled"), font_spacing_b_vlu4.set(0), font_spacing_a_vlu4.set(0), font_indent_left_vlu4.set(0), font_indent_right_vlu4.set(0), font_first_line_vlu4.set(0), font_bold_frm_vlu4.set(0)
+
+    font_mb_name_frm_combox.current(sorted(FONTS).index("宋体")), font_mb_size_frm_combox.current(0), font_mb_ls_frm_combox.current(0), font_mb_ls_vlu.set("1"), font_mb_ls_frm_lbl_b.config(
+        text="倍"), font_mb_ls_ent.config(state="disabled"), font_mb_spacing_b_vlu.set(0), font_mb_spacing_a_vlu.set(0), font_mb_indent_left_vlu.set(0), font_mb_indent_right_vlu.set(0), font_mb_first_line_vlu.set(0), font_mb_bold_frm_vlu.set(0)
+
+    font_num_name_frm_combox.current(sorted(FONTS).index("宋体")), font_num_size_frm_combox.current(0), font_num_bold_frm_vlu.set(0)
     if font_title_ls_frm_combox.cget("state").string == "disabled":
         font_title_ls_frm_combox.configure(state="readonly")
         font_title_ls_frm1_combox.configure(state="readonly")
         font_title_ls_frm2_combox.configure(state="readonly")
         font_title_ls_frm3_combox.configure(state="readonly")
         font_mb_ls_frm_combox.configure(state="readonly")
-        font_num_ls_frm_combox.configure(state="readonly")
-    pgp_indent_l_vlu.set("0"), pgp_indent_r_vlu.set("0"), pgp_indent_f_vlu.set("0")
-    spacing_b_ent.set("0"), spacing_a_ent.set("0"), spacing_l_ent.set("0")
     pgp_almt_frm_combox.current(3)
     pgp_margin_t_vlu.set("2.54"), pgp_margin_b_vlu.set("2.54"), pgp_margin_l_vlu.set("3.17"), pgp_margin_r_vlu.set("3.17")
     # 修改为使用 set 方法设置值
@@ -1502,8 +1601,7 @@ def main():
                     messagebox.showerror("错误", "文件夹路径错误！")
                     return
             data = SystemEvents.getUserInput()
-            # print(checkSpinboxValue(data["indent"]), checkSpinboxValue(data["spacing"]))
-            if not all(LogicalEvents.checkSpinboxValue(data["indent"])) or not all(LogicalEvents.checkSpinboxValue(data["spacing"])):
+            if not all(LogicalEvents.checkSpinboxValue(data)) or not all(LogicalEvents.checkSpinboxValue(data)):
                 return
             output_path = data["main"]["output_path"]
             time_ipt = data["main"]["time_ipt"]
@@ -1574,13 +1672,13 @@ def main():
 
 
 if __name__ == '__main__':
-    VERSION = "v5.2.2.6"
-    UPDATETIME = "2026年6月5日"
+    VERSION = "v5.3.3.6"
+    UPDATETIME = "2026年6月27日"
     """
         !!!!!!!!!!!!
         打包时把此路径改为相对路径，并把图片复制粘贴到打包后的根目录里
         !!!!!!!!!!!!
-        pyinstaller -D -w fix_word.py -i static/icon.ico -n fixWord_v5.2.2.6
+        pyinstaller -D -w fix_word.py -i static/icon.ico -n fixWord_v5.3.3.6
     """
     icon_path = getcwd() + "\\static\\icon.ico"
     wxgzh_path = getcwd() + "\\static\\wxgzh.jpg"
@@ -1593,7 +1691,7 @@ if __name__ == '__main__':
     tk = Tk()
     tk.title(f"文档处理工具 {VERSION} - 微信公众号：晨小明工作室")
     tk.iconbitmap(icon_path)
-    tk.geometry("1400x800")
+    tk.geometry("1600x750")
     # 获取数值前刷新
     tk.update_idletasks()
     # 计算窗口居中时左上角的坐标
@@ -1603,111 +1701,85 @@ if __name__ == '__main__':
     # 调整位置后再刷新
     tk.update()
     # tk.attributes("-alpha", 0.8)
-    tk.minsize(1265, 792)  # 最小宽高
+    tk.minsize(1486, 690)  # 最小宽高
     FONTS = [font_ for font_ in tkFont.families() if "@" not in font_]
-
     # 设置ttk样式
     # style.theme_use('clam')
-
+    # 文件路径
     frm_ = ttk.Frame(tk)
     frm_.pack(anchor="center")
-
-    # 文件路径
     path_lf = ttk.LabelFrame(frm_, text="选择路径", padding=10)
     path_lf.grid(row=0, column=0, padx=2, pady=5)
-
     type_label = ttk.Label(path_lf, font=("Ya Hei", 10, "bold"), text="请选择输入类型：")
     type_label.grid(row=0, column=0, padx=2, pady=5, sticky="e")
-
     type_radio_value = StringVar()
     type_radio1 = ttk.Radiobutton(path_lf, text="文件", value="file_path", variable=type_radio_value, command=PathEvents.inputFile)
     type_radio1.grid(row=0, column=1, padx=2, pady=2)
     type_radio2 = ttk.Radiobutton(path_lf, text="文件夹", value="dir_path", variable=type_radio_value, command=PathEvents.inputDir)
     type_radio2.grid(row=0, column=2, padx=2, pady=2)
     type_radio_value.set("file_path")  # 使用 set 方法设置默认值
-
     path_entry = ttk.Entry(path_lf, width=80, font=("Ya Hei", 12))
     path_entry.grid(row=0, column=3, padx=2, pady=5, sticky="w")
-
     path_button = ttk.Button(path_lf, text="选择文件", command=PathEvents.inputPath, width=12)
     path_button.grid(row=0, column=4, padx=2, pady=5)
-
     separator = ttk.Separator(tk, orient='horizontal')
     separator.pack(fill="x", padx=5, pady=5)
-
     # 主布局
     main_lf = ttk.Frame(tk)
     main_lf.pack(padx=5, pady=5)
     main_frm = ttk.Frame(main_lf)
     main_frm.grid(row=0, column=0, padx=5, pady=5)
-
     # 字体
-    font_lf = ttk.LabelFrame(main_frm, text="设置字体", padding=10)
+    font_lf = ttk.LabelFrame(main_frm, text="设置字体/段落", padding=10)
     font_lf.grid(row=0, column=0, padx=5, pady=5)
-
-    font_title_lf = ttk.LabelFrame(font_lf, text="标题", padding=10)
-    font_title_lf.pack(padx=10, pady=10)
-    font_title_name_frm_combox, font_title_size_frm_combox, font_title_ls_frm_combox, font_title_ls_ent, font_ls_frm_lbl_b, font_ls_frm_vlu, font_ls_vlu = CreateFrame(font_title_lf, "标题",  0, 0, "").cFontFrame()
+    font_frm = ttk.Frame(font_lf)
+    font_frm.pack(padx=10, pady=10)
+    font_name_label = ttk.Label(font_frm, text="字体名称", font=("Ya Hei", 10, "bold"))
+    font_name_label.grid(row=0, column=1, padx=5, pady=5)
+    font_size_label = ttk.Label(font_frm, text="字号", font=("Ya Hei", 10, "bold"))
+    font_size_label.grid(row=0, column=2, padx=5, pady=5)
+    font_bold_label = ttk.Label(font_frm, text="加粗", font=("Ya Hei", 10, "bold"))
+    font_bold_label.grid(row=0, column=3, padx=5, pady=5)
+    font_indent_left_label = ttk.Label(font_frm, text="左侧缩进", font=("Ya Hei", 10, "bold"))
+    font_indent_left_label.grid(row=0, column=4, padx=5, pady=5)
+    font_indent_right_label = ttk.Label(font_frm, text="右侧缩进", font=("Ya Hei", 10, "bold"))
+    font_indent_right_label.grid(row=0, column=5, padx=5, pady=5)
+    font_first_line_indent_label = ttk.Label(font_frm, text="首行缩进", font=("Ya Hei", 10, "bold"))
+    font_first_line_indent_label.grid(row=0, column=6, padx=5, pady=5)
+    font_spacing_before_label = ttk.Label(font_frm, text="段前", font=("Ya Hei", 10, "bold"))
+    font_spacing_before_label.grid(row=0, column=7, padx=5, pady=5)
+    font_spacing_after_label = ttk.Label(font_frm, text="段后", font=("Ya Hei", 10, "bold"))
+    font_spacing_after_label.grid(row=0, column=8, padx=5, pady=5)
+    font_ls_label = ttk.Label(font_frm, text="行距", font=("Ya Hei", 10, "bold"))
+    font_ls_label.grid(row=0, column=9, padx=5, pady=5)
+    # 标题
+    font_title_name_frm_combox, font_title_size_frm_combox, font_title_ls_frm_combox, font_title_ls_ent, font_ls_frm_lbl_b, font_ls_frm_vlu, font_ls_vlu, font_spacing_b_vlu, font_spacing_a_vlu, font_indent_left_vlu, font_indent_right_vlu, font_first_line_vlu, font_bold_frm_vlu = CreateFrame(font_frm, "标题",  0, 0, "磅").cFontFrame()
     font_title_ls_frm_combox.bind("<<ComboboxSelected>>", lambda event: LogicalEvents.fontTitleLsFrmCombox(font_title_ls_ent, font_ls_frm_lbl_b, font_ls_frm_vlu))
-
-    font_title_name_frm1_combox, font_title_size_frm1_combox, font_title_ls_frm1_combox, font_title_ls_ent1, font_ls_frm_lbl_b1, font_ls_frm_vlu1, font_ls_vlu1 = CreateFrame(font_title_lf, "一级标题", 1, 0, "").cFontFrame()
+    # 一级标题
+    font_title_name_frm1_combox, font_title_size_frm1_combox, font_title_ls_frm1_combox, font_title_ls_ent1, font_ls_frm_lbl_b1, font_ls_frm_vlu1, font_ls_vlu1, font_spacing_b_vlu1, font_spacing_a_vlu1, font_indent_left_vlu1, font_indent_right_vlu1, font_first_line_vlu1, font_bold_frm_vlu1 = CreateFrame(font_frm, "一级标题", 1, 0, "磅").cFontFrame()
     font_title_ls_frm1_combox.bind("<<ComboboxSelected>>", lambda event: LogicalEvents.fontTitleLsFrmCombox(font_title_ls_ent1, font_ls_frm_lbl_b1, font_ls_frm_vlu1))
-
-    font_title_name_frm2_combox, font_title_size_frm2_combox, font_title_ls_frm2_combox, font_title_ls_ent2, font_ls_frm_lbl_b2, font_ls_frm_vlu2, font_ls_vlu2 = CreateFrame(font_title_lf, "二级标题", 2, 0, "").cFontFrame()
+    # 二级标题
+    font_title_name_frm2_combox, font_title_size_frm2_combox, font_title_ls_frm2_combox, font_title_ls_ent2, font_ls_frm_lbl_b2, font_ls_frm_vlu2, font_ls_vlu2, font_spacing_b_vlu2, font_spacing_a_vlu2, font_indent_left_vlu2, font_indent_right_vlu2, font_first_line_vlu2, font_bold_frm_vlu2 = CreateFrame(font_frm, "二级标题", 2, 0, "磅").cFontFrame()
     font_title_ls_frm2_combox.bind("<<ComboboxSelected>>", lambda event: LogicalEvents.fontTitleLsFrmCombox(font_title_ls_ent2, font_ls_frm_lbl_b2, font_ls_frm_vlu2))
-
-    font_title_name_frm3_combox, font_title_size_frm3_combox, font_title_ls_frm3_combox, font_title_ls_ent3, font_ls_frm_lbl_b3, font_ls_frm_vlu3, font_ls_vlu3 = CreateFrame(font_title_lf, "三级标题", 3, 0, "").cFontFrame()
+    # 三级标题
+    font_title_name_frm3_combox, font_title_size_frm3_combox, font_title_ls_frm3_combox, font_title_ls_ent3, font_ls_frm_lbl_b3, font_ls_frm_vlu3, font_ls_vlu3, font_spacing_b_vlu3, font_spacing_a_vlu3, font_indent_left_vlu3, font_indent_right_vlu3, font_first_line_vlu3, font_bold_frm_vlu3 = CreateFrame(font_frm, "三级标题", 3, 0, "磅").cFontFrame()
     font_title_ls_frm3_combox.bind("<<ComboboxSelected>>", lambda event: LogicalEvents.fontTitleLsFrmCombox(font_title_ls_ent3, font_ls_frm_lbl_b3, font_ls_frm_vlu3))
-
+    # 四级标题
+    font_title_name_frm4_combox, font_title_size_frm4_combox, font_title_ls_frm4_combox, font_title_ls_ent4, font_ls_frm_lbl_b4, font_ls_frm_vlu4, font_ls_vlu4, font_spacing_b_vlu4, font_spacing_a_vlu4, font_indent_left_vlu4, font_indent_right_vlu4, font_first_line_vlu4, font_bold_frm_vlu4 = CreateFrame(font_frm, "四级标题", 4, 0, "磅").cFontFrame()
+    font_title_ls_frm4_combox.bind("<<ComboboxSelected>>", lambda event: LogicalEvents.fontTitleLsFrmCombox(font_title_ls_ent4, font_ls_frm_lbl_b4, font_ls_frm_vlu4))
     # 正文
-    font_mb_lf = ttk.LabelFrame(font_lf, text="正文", padding=10)
-    font_mb_lf.pack(padx=10, pady=10)
-    font_mb_frm = ttk.Frame(font_mb_lf)
-    font_mb_frm.grid(row=0, column=0, padx=5, pady=5)
-    font_mb_name_frm_combox, font_mb_size_frm_combox, font_mb_ls_frm_combox, font_mb_ls_ent, font_mb_ls_frm_lbl_b, font_mb_ls_frm_vlu, font_mb_ls_vlu = CreateFrame(font_mb_frm, "   正文", 0, 0, "").cFontFrame()
+    font_mb_name_frm_combox, font_mb_size_frm_combox, font_mb_ls_frm_combox, font_mb_ls_ent, font_mb_ls_frm_lbl_b, font_mb_ls_frm_vlu, font_mb_ls_vlu, font_mb_spacing_b_vlu, font_mb_spacing_a_vlu, font_mb_indent_left_vlu, font_mb_indent_right_vlu, font_mb_first_line_vlu, font_mb_bold_frm_vlu = CreateFrame(font_frm, "   正文", 5, 0, "磅").cFontFrame()
     font_mb_ls_frm_combox.bind("<<ComboboxSelected>>", lambda event: LogicalEvents.fontTitleLsFrmCombox(font_mb_ls_ent, font_mb_ls_frm_lbl_b, font_mb_ls_frm_vlu))
-
     # 其他
-    font_else_lf = ttk.LabelFrame(font_lf, text="其他", padding=10)
-    font_else_lf.pack(padx=10, pady=10)
-    font_num_frm = ttk.Frame(font_else_lf)
-    font_num_frm.grid(row=0, column=0, padx=5, pady=5)
-    font_num_name_frm_combox, font_num_size_frm_combox, font_num_ls_frm_combox, font_num_ls_ent, font_num_ls_frm_lbl_b, font_num_ls_frm_vlu, font_num_ls_vlu = CreateFrame(font_num_frm, "数字英文", 0, 0, "").cFontFrame()
-    font_num_ls_frm_combox.bind("<<ComboboxSelected>>", lambda event: LogicalEvents.fontTitleLsFrmCombox(font_num_ls_ent, font_num_ls_frm_lbl_b, font_num_ls_frm_vlu))
-
-    # 段落设置
-    # 对齐
-    pgp_lf = ttk.LabelFrame(main_frm, text="设置段落", padding=10)
-    pgp_lf.grid(row=0, column=1, padx=5, pady=5)
-
-    frm_0 = ttk.Frame(pgp_lf)
-    frm_0.grid(row=0, column=0, padx=5, pady=5)
-
-    # 缩进
-    pgp_indent_lf = ttk.LabelFrame(frm_0, text="设置缩进", padding=10)
-    pgp_indent_lf.grid(row=0, column=0, padx=5, pady=5)
-    pgp_indent_frm = ttk.Frame(pgp_indent_lf)
-    pgp_indent_frm.grid(row=0, column=0, padx=5, pady=4)
-    pgp_indent_l_spb, pgp_indent_l_vlu = CreateFrame(pgp_indent_frm, "左侧缩进：", 0, 0, "厘米").cIndentSpacingFrame()
-    pgp_indent_r_spb, pgp_indent_r_vlu = CreateFrame(pgp_indent_frm, "右侧缩进：", 1, 0, "厘米").cIndentSpacingFrame()
-    pgp_indent_f_spb, pgp_indent_f_vlu = CreateFrame(pgp_indent_frm, "首行缩进：", 2, 0, "字符").cIndentSpacingFrame()
-
-    # 间距
-    spacing_lf = ttk.LabelFrame(frm_0, text="设置间距", padding=10)
-    spacing_lf.grid(row=1, column=0, padx=5, pady=5)
-    spacing_frm = ttk.Frame(spacing_lf)
-    spacing_frm.grid(row=0, column=0, padx=10, pady=4)
-    spacing_b_spb, spacing_b_ent = CreateFrame(spacing_frm, "   段前：", 0, 0, "磅 ").cIndentSpacingFrame()
-    spacing_a_spb, spacing_a_ent = CreateFrame(spacing_frm, "   段后：", 1, 0, "磅 ").cIndentSpacingFrame()
-    spacing_l_spb, spacing_l_ent = CreateFrame(spacing_frm, "   行距：", 2, 0, "磅 ").cIndentSpacingFrame()
-    spacing_l_spb.config(command=lambda: LogicalEvents.spacingLSpb(spacing_l_ent))
-
-    frm_1 = ttk.Frame(pgp_lf)
-    frm_1.grid(row=0, column=1, padx=5, pady=5)
-
-    # 对齐方式
-    pgp_almt_lf = ttk.LabelFrame(frm_1, text="设置对齐方式", padding=10)
-    pgp_almt_lf.grid(row=0, column=0, padx=5, pady=5)
+    font_num_name_frm_combox, font_num_size_frm_combox, font_num_ls_frm_combox, font_num_ls_ent, font_num_ls_frm_lbl_b, font_num_ls_frm_vlu, font_num_ls_vlu, font_num_spacing_b_vlu, font_num_spacing_a_vlu, font_num_indent_left_vlu, font_num_indent_right_vlu, font_num_first_line_vlu, font_num_bold_frm_vlu = CreateFrame(
+        font_frm, "数字英文", 6, 0, "磅").cFontFrame()
+    # 其他段落设置
+    _almt = ttk.Frame(main_frm)
+    _almt.grid(row=1, column=0, padx=5, pady=17)
+    frm_almt = ttk.Frame(main_frm)
+    frm_almt.grid(row=2, column=0, padx=5, pady=5)
+    pgp_almt_lf = ttk.LabelFrame(frm_almt, text="其他段落设置", padding=10)
+    pgp_almt_lf.grid(row=0, column=0, padx=(0, 50), pady=5, ipady=6)
     pgp_almt_frm = ttk.Frame(pgp_almt_lf)
     pgp_almt_frm.grid(row=0, column=0, padx=28, pady=5)
     pgp_almt_frm_lbl = ttk.Label(pgp_almt_frm, text="对齐方式：", font=("Ya Hei", 10, "bold"))
@@ -1716,32 +1788,24 @@ if __name__ == '__main__':
     pgp_almt_frm_combox.grid(row=0, column=1, padx=2, pady=2)
     pgp_almt_frm_combox['values'] = ("左对齐", "居中", "右对齐", "两端对齐")
     pgp_almt_frm_combox.current(3)
-
-    # 孤行控制
-    spacing_sc = ttk.LabelFrame(frm_1, text="设置孤行控制", padding=10)
-    spacing_sc.grid(row=1, column=0, padx=5, pady=5)
-    single_crl_frm = ttk.Frame(spacing_sc)
-    single_crl_frm.grid(row=1, column=0, padx=22, pady=2)
+    single_crl_frm = ttk.Frame(pgp_almt_lf)  # 孤行控制
+    single_crl_frm.grid(row=1, column=0, padx=5, pady=5)
     single_crl_radio_value, single_crl_radio1, single_crl_radio2 = CreateFrame(single_crl_frm, "孤行控制：", 0, 0, "").cRadioFrame()
     single_crl_radio_value.set("0")  # 使用 set 方法设置默认值
-
     # 设置页边距
-    frm_2 = ttk.Frame(pgp_lf)
-    frm_2.grid(row=1, column=0, padx=5, pady=2, columnspan=2)
-    pgp_margin_lf = ttk.LabelFrame(frm_2, text="设置页边距", padding=10)
-    pgp_margin_lf.grid(row=0, column=0, padx=5, pady=2)
+    pgp_margin_lf = ttk.LabelFrame(frm_almt, text="设置页边距", padding=10)
+    pgp_margin_lf.grid(row=0, column=2, padx=95, pady=2)
     pgp_margin_frm = ttk.Frame(pgp_margin_lf)
     pgp_margin_frm.grid(row=0, column=0, padx=5, pady=2)
     pgp_margin_t_spb, pgp_margin_t_vlu = CreateFrame(pgp_margin_frm, "上：", 0, 0, "").cMarginFrame()
     pgp_margin_b_spb, pgp_margin_b_vlu = CreateFrame(pgp_margin_frm, "下：", 0, 1, "").cMarginFrame()
-    pgp_margin_l_spb, pgp_margin_l_vlu = CreateFrame(pgp_margin_frm, "左：", 0, 2, "").cMarginFrame()
-    pgp_margin_r_spb, pgp_margin_r_vlu = CreateFrame(pgp_margin_frm, "右：", 0, 3, "").cMarginFrame()
+    pgp_margin_l_spb, pgp_margin_l_vlu = CreateFrame(pgp_margin_frm, "左：", 1, 0, "").cMarginFrame()
+    pgp_margin_r_spb, pgp_margin_r_vlu = CreateFrame(pgp_margin_frm, "右：", 1, 1, "").cMarginFrame()
     pgp_margin_t_vlu.set("2.54"), pgp_margin_b_vlu.set("2.54"), pgp_margin_l_vlu.set("3.17"), pgp_margin_r_vlu.set("3.17")
-
-    # 处理信息
-    infos_frm = ttk.Frame(frm_1)
-    infos_frm.grid(row=2, column=0, padx=5, pady=5)
-    info_frm = ttk.Frame(infos_frm)
+    # 自定义选项
+    if_frm = ttk.LabelFrame(frm_almt, text="自定义选项", padding=10)
+    if_frm.grid(row=0, column=3, padx=(50, 0), pady=2)
+    info_frm = ttk.Frame(if_frm)
     info_frm.grid(row=0, column=0, padx=5, pady=5)
     time_radio_value, time_radio1, time_radio2 = CreateFrame(info_frm, "添加时间标记：", 0, 0, "").cRadioFrame()
     page_radio_value, page_radio1, page_radio2 = CreateFrame(info_frm, "添加页码：", 1, 0, "").cRadioFrame()
@@ -1749,11 +1813,25 @@ if __name__ == '__main__':
     time_radio_value.set("0")  # 使用 set 方法设置默认值
     page_radio_value.set("0")   # 使用 set 方法设置默认值
     img_radio_value.set("0")    # 使用 set 方法设置默认值
-
+    # 处理日志 - Listbox 没有 ttk 版本，继续使用 tk.Listbox
+    play_history_lfrm = ttk.LabelFrame(main_frm, text="操作日志", padding=10)
+    play_history_lfrm.grid(row=0, column=1, padx=5, pady=0, rowspan=3)
+    play_history_frm = ttk.Frame(play_history_lfrm)
+    play_history_frm.grid(row=0, column=1, padx=(20, 5), pady=5, rowspan=2)
+    play_history_frm_listbox = Listbox(play_history_frm, width=50, height=30, font=("Ya Hei", 10), border=1, activestyle="none")
+    play_history_frm_listbox.grid(row=1, column=0, padx=(0, 0), pady=(0, 0))
+    play_history_scroll_bar_v = ttk.Scrollbar(play_history_frm, orient="vertical", command=play_history_frm_listbox.yview)
+    play_history_scroll_bar_v.grid(row=1, column=1, sticky='ns')
+    play_history_scroll_bar_h = ttk.Scrollbar(play_history_frm, orient="horizontal", command=play_history_frm_listbox.xview)
+    play_history_scroll_bar_h.grid(row=2, column=0, sticky='we')
+    play_history_frm_listbox.configure(yscrollcommand=play_history_scroll_bar_v.set, xscrollcommand=play_history_scroll_bar_h.set)
+    # 绑定右键点击事件到创建弹出菜单的函数
+    play_history_frm_listbox.bind("<Button-3>", LogEvents.create_popup_menu)
+    # 绑定双击事件到列表框上
+    play_history_frm_listbox.bind("<Double-1>", lambda event: LogEvents.open_folder(1))
     # 分隔线
     separator = ttk.Separator(tk, orient='horizontal')
     separator.pack(fill="x", padx=5, pady=5)
-
     # 处理按钮
     btn_frm = ttk.Frame(tk)
     btn_frm.pack(pady=6)
@@ -1766,28 +1844,7 @@ if __name__ == '__main__':
     style.configure("merge.TButton", foreground="green")
     merge_button = ttk.Button(btn_frm, text="开始处理", style="merge.TButton", command=main)
     merge_button.grid(row=0, column=2, padx=5, pady=5)
-
-    # 分隔线
-    separator = ttk.Separator(tk, orient='horizontal')
-    separator.pack(fill="x", padx=2, pady=2)
-
-    # 处理日志 - Listbox 没有 ttk 版本，继续使用 tk.Listbox
-    play_history_frm = ttk.Frame(tk)
-    play_history_frm.pack()
-    play_history_frm_lbl = ttk.Label(play_history_frm, text="操 作 日 志", font=("Ya Hei", 12, "bold"))
-    play_history_frm_lbl.grid(row=0, column=0, padx=5, pady=(10, 5))
-    play_history_frm_listbox = Listbox(play_history_frm, width=100, height=6, font=("Ya Hei", 12), border=1, activestyle="none")
-    play_history_frm_listbox.grid(row=1, column=0, padx=5, pady=5)
-    play_history_scroll_bar_v = ttk.Scrollbar(play_history_frm, orient="vertical", command=play_history_frm_listbox.yview)
-    play_history_scroll_bar_v.grid(row=1, column=1, sticky='ns')
-    play_history_scroll_bar_h = ttk.Scrollbar(play_history_frm, orient="horizontal", command=play_history_frm_listbox.xview)
-    play_history_scroll_bar_h.grid(row=2, column=0, sticky='we')
-    play_history_frm_listbox.configure(yscrollcommand=play_history_scroll_bar_v.set, xscrollcommand=play_history_scroll_bar_h.set)
-    # 绑定右键点击事件到创建弹出菜单的函数
-    play_history_frm_listbox.bind("<Button-3>", LogEvents.create_popup_menu)
-    # 绑定双击事件到列表框上
-    play_history_frm_listbox.bind("<Double-1>", lambda event: LogEvents.open_folder(1))
-
+    # tkinter end
     # 创建菜单 - Menu 没有 ttk 版本，继续使用 tk.Menu
     menu = Menu(tk)
     tk.config(menu=menu)
@@ -1824,6 +1881,7 @@ if __name__ == '__main__':
         auto_import_ini_vlu.set("1")
     else:
         auto_import_ini_vlu.set("0")
+    tk.bind("<Return>", lambda event: main())
     # 初始化成功
     writeHistory("初始化成功！")
     tk.mainloop()
