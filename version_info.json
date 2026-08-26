@@ -1,25 +1,20 @@
 {
-    "version": "5.3.3.6",
-    "versionName": "v5.3.3.6",
+    "version": "5.4.0.4",
+    "versionName": "v5.4.0.4",
     "versionType": "release",
-    "updateDate": 1782536182,
+    "updateDate": 1787718373,
     "tagUrl": {
-        "github": "https://github.com/Sam-CXM/fixWord/releases/tag/v5.3.3.6",
-        "gitee": "https://gitee.com/cxmStudio/fixWord/releases/tag/v5.3.3.6"
+        "github": "https://github.com/Sam-CXM/fixWord/releases/tag/v5.4.0.4",
+        "gitee": "https://gitee.com/cxmStudio/fixWord/releases/tag/v5.4.0.4"
     },
     "downloadUrl": {
-        "github": "https://github.com/Sam-CXM/fixWord/releases/download/v5.3.3.6/fixWord_v5.3.3.6.zip",
-        "gitee": "https://gitee.com/cxmStudio/fixWord/releases/download/v5.3.3.6/fixWord_v5.3.3.6.zip"
+        "github": "https://github.com/Sam-CXM/fixWord/releases/download/v5.4.0.4/fixWord_v5.4.0.4.zip",
+        "gitee": "https://gitee.com/cxmStudio/fixWord/releases/download/v5.4.0.4/fixWord_v5.4.0.4.zip"
     },
     "updateLog": [
-        "【新增】加粗设置；",
-        "【新增】四级标题设置及相关事件；",
-        "【新增】各标题左侧缩进、右侧缩进、首行缩进、段前、段后、行距设置；",
-        "【修复】更新返回值为空时，程序无响应；",
-        "【修复】删除压缩包逻辑；",
-        "【修复】数据校验逻辑；",
-        "【修复】替换三级标题后的顿号为点 1、——> 1.；",
-        "【优化】更改了界面布局；",
-        "【优化】代码结构。"
+        "【修复】首行缩进数值单位错误的问题；",
+        "【修复】小三字号设置变量错误的问题；",
+        "【修复】当文件名中有空格，处理后打开文件提示路径错误的问题；",
+        "【优化】编号函数、重置函数的代码结构。"
     ]
 }

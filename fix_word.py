@@ -7,9 +7,9 @@
 
 开发作者：晨小明
 开发日期：2024/09/22
-开发版本：v5.3.3.6_Dev
-发布版本：v5.3.3.6_Release
-修改日期：2026/06/27
+开发版本：v5.4.0.4_Dev
+发布版本：v5.4.0.4_Release
+修改日期：2026/08/26
 主要功能：一、支持批量文档处理，输入文件夹路径，自动判断。
          二、读取.docx文件并设置格式；
          三、支持自定义格式设置：字体、字号、页边距、行距
@@ -31,15 +31,10 @@
          七、输出文件名称含时间点，方便标记（可选）
          （注，本程序无法处理图片格式，如果图片独立成段，本程序所用API识别到图片会被默认是空段落，为了防止图片删除，只能放弃处理空段落及图片格式）
 更新日志：
-【新增】加粗设置；
-【新增】四级标题设置及相关事件；
-【新增】各标题左侧缩进、右侧缩进、首行缩进、段前、段后、行距设置；
-【修复】更新返回值为空时，程序无响应；
-【修复】删除压缩包逻辑；
-【修复】数据校验逻辑；
-【修复】替换三级标题后的顿号为点 1、——> 1.；
-【优化】更改了界面布局；
-【优化】代码结构。
+【修复】首行缩进数值单位错误的问题；
+【修复】小三字号设置变量错误的问题；
+【修复】当文件名中有空格，处理后打开文件提示路径错误的问题；
+【优化】编号函数、重置函数的代码结构。
 """
 
 from re import sub
@@ -578,7 +573,7 @@ class Replace():
         if '）、' in p.text[:4]:
             p.text = p.text.replace('）、', '）')
         # 替换数字后的、为.
-        if p.text[:3][0].isdigit() and '、' in p.text[:3]:
+        if len(p.text) >= 3 and p.text[:3][0].isdigit() and '、' in p.text[:3]:
             p.text = p.text[:3].replace('、', '.') + p.text[3:]
         return p
 
@@ -603,6 +598,8 @@ class WithNumberDocxReader:
         for paragraph in self.docx.paragraphs:
             try:
                 number_text = self.get_number_text(paragraph._element.pPr.numPr)
+            except AttributeError as e:
+                number_text = ""
             except Exception as e:
                 writeLog(f"提示：无法获取文档编号部分：{e if e else '未知原因'}")
                 number_text = ""
@@ -1064,7 +1061,7 @@ class CreateFrame():
     def cFontFrame(self):
         """字体标题"""
 
-        def cIndentSpacingFrame(self, col):
+        def cIndentSpacingFrame(self, col, l_txt="磅"):
             """左侧缩进、右侧缩进、段前、段后布局通用"""
             spacing_frm = ttk.Frame(self.frm)
             spacing_frm.grid(row=self.row, column=col, sticky="n")
@@ -1072,7 +1069,7 @@ class CreateFrame():
             spacing_vlu.set("0")  # 初始值设置为0
             spacing_spinbox = ttk.Spinbox(spacing_frm, from_=0, to=100, increment=0.1, textvariable=spacing_vlu, width=5, font=("Ya Hei", 10), wrap=True)
             spacing_spinbox.grid(row=self.row, column=1, padx=(10, 2), pady=5)
-            ttk.Label(spacing_frm, text=self.last_txt, font=("Ya Hei", 10)).grid(row=self.row, column=2, padx=(2, 10), pady=5)  # 磅文本
+            ttk.Label(spacing_frm, text=l_txt, font=("Ya Hei", 10)).grid(row=self.row, column=2, padx=(2, 10), pady=5)  # 磅文本
             return spacing_vlu
         font_label = ttk.Label(self.frm, font=("Ya Hei", 10, "bold"), text=self.title_txt)
         font_label.grid(row=self.row, column=0, padx=2, pady=5, sticky="e")
@@ -1088,7 +1085,7 @@ class CreateFrame():
         font_size_frm.grid(row=self.row, column=2, sticky="n")
         font_size_frm_combox = ttk.Combobox(font_size_frm, width=4, font=("Ya Hei", 10))  # 字号下拉框盒子
         font_size_frm_combox.grid(row=self.row, column=1, padx=10, pady=5)
-        font_size_frm_combox['values'] = ("初号", "小初", "一号", "小一", "二号", "小二", "三号", "小三", "四号", "小四", "五号", "小五", "六号", "小六", "七号", "八号")
+        font_size_frm_combox['values'] = [i for i in FONTSIZEDICT.keys()]
         font_size_frm_combox.current(0)
         # 加粗，用复选框
         font_bold_frm = ttk.Frame(self.frm)
@@ -1104,7 +1101,7 @@ class CreateFrame():
             # 右侧缩进
             indent_right_vlu = cIndentSpacingFrame(self, 5)
             # 首行缩进
-            first_line_vlu = cIndentSpacingFrame(self, 6)
+            first_line_vlu = cIndentSpacingFrame(self, 6, "字符")
             # 段前
             spacing_b_vlu = cIndentSpacingFrame(self, 7)
             # 段后
@@ -1437,8 +1434,8 @@ class LogEvents():
     def open_folder(type):
         # 获取当前选中的条目索引和内容
         selected_index = play_history_frm_listbox.curselection()[0]  # 获取当前选中项的索引
-        selected_folder = play_history_frm_listbox.get(selected_index)  # 获取当前选中项的内容（即文件夹路径）
-        selected_ = selected_folder.split(" ")[-1]
+        selected_folder = play_history_frm_listbox.get(selected_index)  # 获取当前选中项的内容
+        selected_ = selected_folder.split("  ")[-1].split("* ")[-1]
         if path.exists(selected_):
             if type == 1:  # 打开文件
                 # 使用系统默认的文件浏览器打开文件夹
@@ -1454,8 +1451,8 @@ class LogEvents():
         # 获取选中的项
         # 获取当前选中的条目索引和内容
         selected_index = listbox.curselection()[0]  # 获取当前选中项的索引
-        selected_folder = listbox.get(selected_index)  # 获取当前选中项的内容（即文件夹路径）
-        selected_ = selected_folder.split(" ")[-1]
+        selected_folder = listbox.get(selected_index)  # 获取当前选中项的内容
+        selected_ = selected_folder.split("  ")[-1].split("* ")[-1]
         if path.exists(selected_):
             # 这里可以添加复制到剪贴板的代码，例如使用tkinter的clipboard模块
             if tk.clipboard_get():
@@ -1463,7 +1460,7 @@ class LogEvents():
             tk.clipboard_append(selected_)
             messagebox.showinfo("提示", "已复制到剪贴板！\n使用 【Ctrl+V】 粘贴即可！")
         else:
-            messagebox.showwarning("警告", "未检测到有效路径！请重试！")
+            messagebox.showwarning("警告", "未检测到有效路径！")
 
 
 def aboutTk():
@@ -1566,12 +1563,15 @@ def reSet():
         text="倍"), font_mb_ls_ent.config(state="disabled"), font_mb_spacing_b_vlu.set(0), font_mb_spacing_a_vlu.set(0), font_mb_indent_left_vlu.set(0), font_mb_indent_right_vlu.set(0), font_mb_first_line_vlu.set(0), font_mb_bold_frm_vlu.set(0)
 
     font_num_name_frm_combox.current(sorted(FONTS).index("宋体")), font_num_size_frm_combox.current(0), font_num_bold_frm_vlu.set(0)
-    if font_title_ls_frm_combox.cget("state").string == "disabled":
-        font_title_ls_frm_combox.configure(state="readonly")
-        font_title_ls_frm1_combox.configure(state="readonly")
-        font_title_ls_frm2_combox.configure(state="readonly")
-        font_title_ls_frm3_combox.configure(state="readonly")
-        font_mb_ls_frm_combox.configure(state="readonly")
+    try:
+        if font_title_ls_frm_combox.cget("state").string == "disabled":
+            font_title_ls_frm_combox.configure(state="readonly")
+            font_title_ls_frm1_combox.configure(state="readonly")
+            font_title_ls_frm2_combox.configure(state="readonly")
+            font_title_ls_frm3_combox.configure(state="readonly")
+            font_mb_ls_frm_combox.configure(state="readonly")
+    except:
+        pass
     pgp_almt_frm_combox.current(3)
     pgp_margin_t_vlu.set("2.54"), pgp_margin_b_vlu.set("2.54"), pgp_margin_l_vlu.set("3.17"), pgp_margin_r_vlu.set("3.17")
     # 修改为使用 set 方法设置值
@@ -1672,20 +1672,20 @@ def main():
 
 
 if __name__ == '__main__':
-    VERSION = "v5.3.3.6"
-    UPDATETIME = "2026年6月27日"
+    VERSION = "v5.4.0.4"
+    UPDATETIME = "2026年8月26日"
     """
         !!!!!!!!!!!!
         打包时把此路径改为相对路径，并把图片复制粘贴到打包后的根目录里
         !!!!!!!!!!!!
-        pyinstaller -D -w fix_word.py -i static/icon.ico -n fixWord_v5.3.3.6
+        pyinstaller -D -w fix_word.py -i static/icon.ico -n fixWord_v5.4.0.4
     """
     icon_path = getcwd() + "\\static\\icon.ico"
     wxgzh_path = getcwd() + "\\static\\wxgzh.jpg"
     cxm_path = getcwd() + "\\static\\cxmstudio-lignt-heng.png"
     # 配置信息start
     # 字号字典
-    FONTSIZEDICT = {"八号": 5, "七号": 5.5, "小六": 6.5, "六号": 7.5, "小五": 9, "五号": 10.5, "小四": 12, "四号": 14, "小三号": 15, "三号": 16, "小二": 18, "二号": 22, "小一": 24, "一号": 26, "小初": 36, "初号": 42}
+    FONTSIZEDICT = {"初号": 42, "小初": 36, "一号": 26, "小一": 24, "二号": 22, "小二": 18, "三号": 16, "小三": 15, "四号": 14, "小四": 12, "五号": 10.5, "小五": 9, "六号": 7.5, "小六": 6.5, "七号": 5.5, "八号": 5, "5":5, "5.5":5.5, "6.5":6.5, "7.5":7.5, "8":8, "9":9, "10":10, "10.5":10.5, "11":11, "12":12, "14":14, "16":16, "18":18, "20":20, "22":22, "24":24, "26":26, "28":28, "36":36, "48":48, "72":72}
     # 配置信息end
     # tkinter start
     tk = Tk()
